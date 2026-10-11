@@ -7,12 +7,22 @@ import { recordAudit } from '../../data/audit.ts'
 import { targets, type Target } from '../../data/tables.ts'
 import { FAKE_TARGET_AUDIENCE, FAKE_TARGET_MODES } from '../../dev/fake-target.ts'
 import { env } from '../../env.ts'
+import { logError } from '../../log.ts'
 import type { AppContext } from '../../router.ts'
 import { routes } from '../../routes.ts'
 import { readEndpointConfig } from '../../targets/endpoint.ts'
 import { UUID_PATTERN } from '../requests/format.ts'
-import { fields, notFound, page, plural, setFlash, type Errors } from '../shared.tsx'
-import { TargetFormPage, TargetsIndexPage, type TargetValues } from './pages.tsx'
+import {
+  fields,
+  notFound,
+  page,
+  tableFailure,
+  tableUrl,
+  plural,
+  setFlash,
+  type Errors,
+} from '../shared.tsx'
+import { TargetFormPage, TargetsIndexPage, TargetsTable, type TargetValues } from './pages.tsx'
 
 const SLUG = /^[a-z0-9]+(-[a-z0-9]+)*$/
 
@@ -78,11 +88,31 @@ export default createController(routes.targets, {
       return c.render(
         <TargetsIndexPage
           base={page(c, c.auth.identity)}
-          targets={await c.db.findMany(targets, { orderBy: ['name', 'asc'] })}
+          targets={
+            c.request.headers.has('X-Remix-Frame')
+              ? undefined
+              : await c.db.findMany(targets, { orderBy: ['name', 'asc'] })
+          }
+          tableSrc={tableUrl(c.url, routes.targets.table.href()).href}
           url={c.url}
           development={env.NODE_ENV === 'development'}
         />,
       )
+    },
+
+    async table(c) {
+      if (!c.auth.ok) return notFound()
+      let url = tableUrl(c.url, routes.targets.index.href())
+      if (!c.request.headers.has('X-Remix-Frame')) return redirect(url.pathname + url.search)
+      try {
+        let items = await c.db.findMany(targets, { orderBy: ['name', 'asc'] })
+        if (c.request.signal.aborted) return new Response(null, { status: 204 })
+        return c.render(<TargetsTable targets={items} url={url} />)
+      } catch (error) {
+        if (c.request.signal.aborted) return new Response(null, { status: 204 })
+        logError('load targets table', error)
+        return c.render(tableFailure('targets', url.pathname + url.search))
+      }
     },
 
     new(c) {

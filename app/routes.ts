@@ -7,6 +7,7 @@ export const routes = route({
   home: get('/'),
   requests: {
     index: get('/requests'),
+    table: get('/requests/table'),
     new: get('/requests/new'),
     create: post('/requests'),
     show: get('/requests/:id'),
@@ -16,6 +17,7 @@ export const routes = route({
   },
   targets: {
     index: get('/targets'),
+    table: get('/targets/table'),
     new: get('/targets/new'),
     create: post('/targets'),
     addFakes: post('/targets/fakes'),

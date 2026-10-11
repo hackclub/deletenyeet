@@ -1,6 +1,8 @@
+import { Frame } from 'remix/component'
 import type { Handle } from 'remix/component'
 
 import type { Target } from '../../data/tables.ts'
+import { TableLoading } from '../../ui/table-loading.tsx'
 import { routes } from '../../routes.ts'
 import { readEndpointConfig } from '../../targets/endpoint.ts'
 import { Alert } from '../../ui/alert.tsx'
@@ -49,18 +51,16 @@ const COLUMNS: TableColumn<Target>[] = [
 ]
 
 export function TargetsIndexPage(
-  handle: Handle<{ base: PageBase; targets: Target[]; url: URL; development: boolean }>,
+  handle: Handle<{
+    base: PageBase
+    targets?: Target[]
+    tableSrc?: string
+    url: URL
+    development: boolean
+  }>,
 ) {
   return () => {
-    let { base, targets, url, development } = handle.props
-    let state = readTableState(url, {
-      sortable: ['name', 'slug', 'type', 'audience', 'enabled'],
-      defaultSortBy: 'name',
-    })
-    let items = applyTableState(targets, state, {
-      filterText: (t) => `${t.name} ${t.slug} ${t.type} ${t.audience ?? ''}`,
-      sortValue: (t, column) => String(t[column as keyof Target] ?? ''),
-    })
+    let { base, targets, tableSrc, url, development } = handle.props
     return (
       <Page base={base} title="Targets" section={section()}>
         <SpaceBetween size="l">
@@ -82,19 +82,44 @@ export function TargetsIndexPage(
           >
             Targets
           </Header>
-          <Table
-            columns={COLUMNS}
-            items={items}
-            rowKey={(t: Target) => t.id}
-            state={state}
-            url={url}
-            totalCount={targets.length}
-            filterPlaceholder="Find targets"
-            header={<Header counter={`(${targets.length})`}>Registry</Header>}
-            empty="No targets registered"
-          />
+          {targets ? (
+            <TargetsTable targets={targets} url={url} />
+          ) : (
+            <Frame
+              name="targets-table"
+              src={tableSrc!}
+              fallback={<TableLoading label="targets" href={url.pathname + url.search} />}
+            />
+          )}
         </SpaceBetween>
       </Page>
+    )
+  }
+}
+
+export function TargetsTable(handle: Handle<{ targets: Target[]; url: URL }>) {
+  return () => {
+    let { targets, url } = handle.props
+    let state = readTableState(url, {
+      sortable: ['name', 'slug', 'type', 'audience', 'enabled'],
+      defaultSortBy: 'name',
+    })
+    let items = applyTableState(targets, state, {
+      filterText: (t) => `${t.name} ${t.slug} ${t.type} ${t.audience ?? ''}`,
+      sortValue: (t, column) => String(t[column as keyof Target] ?? ''),
+    })
+    return (
+      <Table
+        columns={COLUMNS}
+        items={items}
+        rowKey={(t: Target) => t.id}
+        state={state}
+        url={url}
+        totalCount={targets.length}
+        filterPlaceholder="Find targets"
+        header={<Header counter={`(${targets.length})`}>Registry</Header>}
+        empty="No targets registered"
+      />
     )
   }
 }

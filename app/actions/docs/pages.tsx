@@ -97,7 +97,7 @@ const REFERENCES = [
 export function DeletionsDocsPage(handle: Handle<{ staff: Staff | null; csrfToken: string }>) {
   return () => {
     let { staff, csrfToken } = handle.props
-    let p = { title: 'Implementing deletions', activeHref: routes.docs.deletions.href() }
+    let p = { title: 'how to yeet data properly', activeHref: routes.docs.deletions.href() }
     return staff ? (
       <StaffPage {...p} staff={staff} csrfToken={csrfToken}>
         <DeletionsDocs />

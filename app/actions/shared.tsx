@@ -4,6 +4,7 @@ import type { Session } from 'remix/session'
 
 import type { Staff } from '../auth/staff.ts'
 import type { AppContext } from '../router.ts'
+import { Alert } from '../ui/alert.tsx'
 import { Button } from '../ui/button.tsx'
 import type { FlashItem } from '../ui/flashbar.tsx'
 import { FormField, Input } from '../ui/form-field.tsx'
@@ -103,5 +104,19 @@ export function Actions(handle: Handle<{ cancel: string; children: RemixNode }>)
         {handle.props.children}
       </Button>
     </SpaceBetween>
+  )
+}
+
+export function tableUrl(source: URL, pathname: string) {
+  let url = new URL(pathname, source)
+  url.search = source.search
+  return url
+}
+
+export function tableFailure(label: string, href: string) {
+  return (
+    <Alert type="error" header={`Could not load ${label}`}>
+      <a href={href}>Try again</a>
+    </Alert>
   )
 }

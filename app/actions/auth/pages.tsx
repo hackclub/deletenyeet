@@ -40,7 +40,7 @@ export function LoginPage(handle: Handle<{ csrfToken: string; error?: string; re
             <span class="text-secondary text-small">({error})</span>
           </Alert>
         ) : null}
-        <form method="post" action={routes.auth.startLogin.href()}>
+        <form method="post" action={routes.auth.startLogin.href()} data-rmx-document>
           <input type="hidden" name="_csrf" value={csrfToken} />
           <input type="hidden" name="returnTo" value={returnTo} />
           <Button type="submit" variant="primary" fullWidth>

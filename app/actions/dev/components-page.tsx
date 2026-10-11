@@ -22,6 +22,7 @@ import {
   Table,
   type TableColumn,
 } from '../../ui/table.tsx'
+import { TableLoading } from '../../ui/table-loading.tsx'
 import { Tabs } from '../../ui/tabs.tsx'
 
 const SAMPLE_REQUESTS = (
@@ -299,6 +300,8 @@ export function ComponentsPage(handle: Handle<{ staff: Staff; csrfToken: string;
               </Tabs>
             </Container>
           </div>
+
+          <TableLoading label="requests" href={routes.dev.components.href()} />
 
           <Container
             header={<Header description="Long-form docs text and code blocks.">Prose</Header>}

@@ -9,13 +9,23 @@ import { enqueueResolve } from '../../jobs/boss.ts'
 import { logError } from '../../log.ts'
 import type { AppContext } from '../../router.ts'
 import { routes } from '../../routes.ts'
-import { fields, notFound, page, setFlash, type Errors, type Flash } from '../shared.tsx'
+import {
+  fields,
+  notFound,
+  page,
+  tableFailure,
+  tableUrl,
+  setFlash,
+  type Errors,
+  type Flash,
+} from '../shared.tsx'
 import { listRequests, loadRequestDetail } from './data.ts'
 import { UUID_PATTERN } from './format.ts'
 import {
   NewRequestPage,
   RequestShowPage,
   RequestsIndexPage,
+  RequestsTable,
   type NewRequestValues,
 } from './pages.tsx'
 
@@ -63,10 +73,26 @@ export default createController(routes.requests, {
       return c.render(
         <RequestsIndexPage
           base={page(c, c.auth.identity)}
-          requests={await listRequests(c.db)}
+          requests={c.request.headers.has('X-Remix-Frame') ? undefined : await listRequests(c.db)}
+          tableSrc={tableUrl(c.url, routes.requests.table.href()).href}
           url={c.url}
         />,
       )
+    },
+
+    async table(c) {
+      if (!c.auth.ok) return notFound()
+      let url = tableUrl(c.url, routes.requests.index.href())
+      if (!c.request.headers.has('X-Remix-Frame')) return redirect(url.pathname + url.search)
+      try {
+        let items = await listRequests(c.db)
+        if (c.request.signal.aborted) return new Response(null, { status: 204 })
+        return c.render(<RequestsTable requests={items} url={url} refresh />)
+      } catch (error) {
+        if (c.request.signal.aborted) return new Response(null, { status: 204 })
+        logError('load requests table', error)
+        return c.render(tableFailure('requests', url.pathname + url.search))
+      }
     },
 
     new(c) {

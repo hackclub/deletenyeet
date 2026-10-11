@@ -1,6 +1,9 @@
+import { Frame } from 'remix/component'
 import type { Handle, RemixNode } from 'remix/component'
 
 import type { PrivacyRequest, TargetPhase } from '../../data/tables.ts'
+import { AutoRefresh } from '../../ui/public/auto-refresh.tsx'
+import { TableLoading } from '../../ui/table-loading.tsx'
 import { routes } from '../../routes.ts'
 import { Alert } from '../../ui/alert.tsx'
 import { Badge } from '../../ui/badge.tsx'
@@ -79,28 +82,16 @@ const COLUMNS: TableColumn<PrivacyRequest>[] = [
 ]
 
 export function RequestsIndexPage(
-  handle: Handle<{ base: PageBase; requests: PrivacyRequest[]; url: URL }>,
+  handle: Handle<{ base: PageBase; requests?: PrivacyRequest[]; tableSrc?: string; url: URL }>,
 ) {
   return () => {
-    let { base, requests, url } = handle.props
-    let state = readTableState(url, {
-      sortable: ['id', 'type', 'status', 'source', 'created_at'],
-      defaultSortBy: 'created_at',
-      defaultDescending: true,
-    })
-    let items = applyTableState(requests, state, {
-      filterText: (r) => `${r.id} ${r.type} ${REQUEST_STATUS[r.status].label} ${r.source}`,
-      sortValue: (r, column) =>
-        column === 'created_at'
-          ? new Date(r.created_at as string).getTime()
-          : String(r[column as keyof PrivacyRequest]),
-    })
+    let { base, requests, tableSrc, url } = handle.props
     return (
       <Page
         base={base}
         title="Requests"
         section={section()}
-        refresh={requests.some((r) => ACTIVE_STATUSES.includes(r.status)) ? 10 : undefined}
+        refresh={requests?.some((r) => ACTIVE_STATUSES.includes(r.status)) ? 10 : undefined}
       >
         <SpaceBetween size="l">
           <Header
@@ -114,19 +105,56 @@ export function RequestsIndexPage(
           >
             Requests
           </Header>
-          <Table
-            columns={COLUMNS}
-            items={items}
-            rowKey={(r: PrivacyRequest) => r.id}
-            state={state}
-            url={url}
-            totalCount={requests.length}
-            filterPlaceholder="Find by ID, type, or status"
-            header={<Header counter={`(${requests.length})`}>All requests</Header>}
-            empty="No requests yet"
-          />
+          {requests ? (
+            <RequestsTable requests={requests} url={url} />
+          ) : (
+            <Frame
+              name="requests-table"
+              src={tableSrc!}
+              fallback={<TableLoading label="requests" href={url.pathname + url.search} />}
+            />
+          )}
         </SpaceBetween>
       </Page>
+    )
+  }
+}
+
+export function RequestsTable(
+  handle: Handle<{ requests: PrivacyRequest[]; url: URL; refresh?: boolean }>,
+) {
+  return () => {
+    let { requests, url, refresh } = handle.props
+    let state = readTableState(url, {
+      sortable: ['id', 'type', 'status', 'source', 'created_at'],
+      defaultSortBy: 'created_at',
+      defaultDescending: true,
+    })
+    let items = applyTableState(requests, state, {
+      filterText: (r) => `${r.id} ${r.type} ${REQUEST_STATUS[r.status].label} ${r.source}`,
+      sortValue: (r, column) =>
+        column === 'created_at'
+          ? new Date(r.created_at as string).getTime()
+          : String(r[column as keyof PrivacyRequest]),
+    })
+    return (
+      <>
+        <AutoRefresh
+          seconds={10}
+          active={Boolean(refresh && requests.some((r) => ACTIVE_STATUSES.includes(r.status)))}
+        />
+        <Table
+          columns={COLUMNS}
+          items={items}
+          rowKey={(r: PrivacyRequest) => r.id}
+          state={state}
+          url={url}
+          totalCount={requests.length}
+          filterPlaceholder="Find by ID, type, or status"
+          header={<Header counter={`(${requests.length})`}>All requests</Header>}
+          empty="No requests yet"
+        />
+      </>
     )
   }
 }

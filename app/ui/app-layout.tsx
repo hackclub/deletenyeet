@@ -14,7 +14,7 @@ export interface NavSection {
 
 export const DOCS: NavSection = {
   title: 'Docs',
-  links: [{ text: 'Implementing deletions', href: routes.docs.deletions.href() }],
+  links: [{ text: 'how to yeet data properly', href: routes.docs.deletions.href() }],
 }
 
 const isActive = (href: string, active: string) =>

@@ -16,6 +16,7 @@ import requestsController from './actions/requests/controller.tsx'
 import targetsController from './actions/targets/controller.tsx'
 import { assets } from './assets.ts'
 import { env } from './env.ts'
+import { logError } from './log.ts'
 import { sessionCookie, sessionStorage, staffSessionScheme } from './auth/staff.ts'
 import { loadDatabase } from './middleware/database.ts'
 import { requireStaff } from './middleware/require-staff.ts'
@@ -51,7 +52,7 @@ export const router = createRouter({
         routes.auth.callback,
       ],
     }),
-    render({ assets }),
+    render({ assets, onError: (error) => logError('render', error) }),
   ],
 })
 

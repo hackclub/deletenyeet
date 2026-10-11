@@ -6,6 +6,7 @@ import { routes } from '../routes.ts'
 import { AppLayout, DOCS } from './app-layout.tsx'
 import { Breadcrumbs, type BreadcrumbItem } from './breadcrumbs.tsx'
 import { Button } from './button.tsx'
+import { AutoRefresh } from './public/auto-refresh.tsx'
 import { Flashbar, type FlashItem } from './flashbar.tsx'
 
 export function StaffPage(
@@ -28,7 +29,9 @@ export function StaffPage(
         title={title}
         head={
           refreshSeconds ? (
-            <meta http-equiv="refresh" content={String(refreshSeconds)} />
+            <noscript>
+              <meta http-equiv="refresh" content={String(refreshSeconds)} />
+            </noscript>
           ) : undefined
         }
         homeHref={routes.home.href()}
@@ -53,7 +56,7 @@ export function StaffPage(
         utilities={
           <>
             <span class="top-nav__user">{staff.name ?? staff.sub}</span>
-            <form method="post" action={routes.auth.logout.href()}>
+            <form method="post" action={routes.auth.logout.href()} data-rmx-document>
               <input type="hidden" name="_csrf" value={csrfToken} />
               <Button type="submit" variant="link">
                 Sign out
@@ -64,6 +67,7 @@ export function StaffPage(
         breadcrumbs={breadcrumbs ? <Breadcrumbs items={breadcrumbs} /> : undefined}
         notifications={flashes?.length ? <Flashbar items={flashes} /> : undefined}
       >
+        {refreshSeconds ? <AutoRefresh seconds={refreshSeconds} active /> : null}
         {children}
       </AppLayout>
     )

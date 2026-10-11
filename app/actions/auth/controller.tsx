@@ -49,7 +49,8 @@ export default createController(routes.auth, {
         )
       } catch (error) {
         let reason = classifyCallbackError(error, context.url)
-        if (reason === 'unexpected' || reason === 'discovery_failed') logError('login callback', error)
+        if (reason === 'unexpected' || reason === 'discovery_failed')
+          logError('login callback', error)
         await recordAudit(context.db, {
           actor: { type: 'system' },
           action: 'auth.login_failed',
@@ -70,7 +71,10 @@ export default createController(routes.auth, {
       }
 
       writeStaff(completeAuth(context), staff)
-      await recordAudit(context.db, { actor: { type: 'staff', id: staff.sub }, action: 'auth.login' })
+      await recordAudit(context.db, {
+        actor: { type: 'staff', id: staff.sub },
+        action: 'auth.login',
+      })
       return redirect(finished.returnTo ?? routes.home.href(), 303)
     },
 

@@ -35,7 +35,8 @@ export function parseTargetResult(value: unknown): TargetResult | null {
   if (typeof value !== 'object' || value === null) return null
   let body = value as Record<string, unknown>
   if (typeof body.found !== 'boolean') return null
-  if (typeof body.deleted !== 'object' || body.deleted === null || Array.isArray(body.deleted)) return null
+  if (typeof body.deleted !== 'object' || body.deleted === null || Array.isArray(body.deleted))
+    return null
   let deleted: Record<string, number> = {}
   for (let [key, count] of Object.entries(body.deleted)) {
     if (!isCount(count) || !isLabel(key)) return null
@@ -46,7 +47,8 @@ export function parseTargetResult(value: unknown): TargetResult | null {
   for (let item of body.retained) {
     if (typeof item !== 'object' || item === null) return null
     let { type, count, reason } = item as Record<string, unknown>
-    if (!isLabel(type) || !isCount(count) || typeof reason !== 'string' || reason.length > 500) return null
+    if (!isLabel(type) || !isCount(count) || typeof reason !== 'string' || reason.length > 500)
+      return null
     retained.push({ type, count, reason })
   }
   return { found: body.found, deleted, retained }

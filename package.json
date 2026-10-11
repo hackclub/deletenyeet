@@ -7,6 +7,9 @@
     "hmr": "NODE_ENV=development node --env-file-if-exists=.env hmr.ts",
     "start": "NODE_ENV=production node --import remix/node-tsx server.ts",
     "typecheck": "tsc --noEmit",
+    "lint": "oxlint .",
+    "format": "oxfmt --write app scripts server.ts hmr.ts",
+    "format:check": "oxfmt --check app scripts server.ts hmr.ts",
     "db": "node --env-file-if-exists=.env node_modules/remix/dist/cli-entry.js db",
     "db:up": "docker compose up -d --wait postgres",
     "tokens": "node --import remix/node-tsx scripts/generate-tokens.ts",
@@ -25,6 +28,8 @@
     "@cloudscape-design/design-tokens": "^3.0.114",
     "@types/node": "latest",
     "@types/pg": "^8.23.1",
+    "oxfmt": "^0.72.0",
+    "oxlint": "^1.87.0",
     "typescript": "latest"
   }
 }

@@ -6,7 +6,6 @@ import { Alert } from '../../ui/alert.tsx'
 import { Badge } from '../../ui/badge.tsx'
 import { Button } from '../../ui/button.tsx'
 import { Container } from '../../ui/container.tsx'
-import { Flashbar } from '../../ui/flashbar.tsx'
 import { FormField, Input, Select, Textarea } from '../../ui/form-field.tsx'
 import { Header } from '../../ui/header.tsx'
 import { KeyValuePairs } from '../../ui/key-value-pairs.tsx'
@@ -27,13 +26,62 @@ interface SampleRequest {
 }
 
 const SAMPLE_REQUESTS: SampleRequest[] = [
-  { id: 'req-0007', kind: 'deletion', status: 'pending', statusText: 'Awaiting approval', targets: 4, receivedAt: new Date('2026-10-09T14:12:00Z') },
-  { id: 'req-0006', kind: 'export', status: 'in-progress', statusText: 'Executing', targets: 3, receivedAt: new Date('2026-10-08T09:40:00Z') },
-  { id: 'req-0005', kind: 'deletion', status: 'success', statusText: 'Completed', targets: 5, receivedAt: new Date('2026-10-05T18:02:00Z') },
-  { id: 'req-0004', kind: 'deletion', status: 'error', statusText: 'Failed on 1 target', targets: 5, receivedAt: new Date('2026-10-03T11:25:00Z') },
-  { id: 'req-0003', kind: 'export', status: 'stopped', statusText: 'Rejected', targets: 2, receivedAt: new Date('2026-09-30T08:15:00Z') },
-  { id: 'req-0002', kind: 'deletion', status: 'warning', statusText: 'Identifier unresolved', targets: 0, receivedAt: new Date('2026-09-28T21:47:00Z') },
-  { id: 'req-0001', kind: 'export', status: 'info', statusText: 'Dry run ready', targets: 3, receivedAt: new Date('2026-09-27T16:30:00Z') },
+  {
+    id: 'req-0007',
+    kind: 'deletion',
+    status: 'pending',
+    statusText: 'Awaiting approval',
+    targets: 4,
+    receivedAt: new Date('2026-10-09T14:12:00Z'),
+  },
+  {
+    id: 'req-0006',
+    kind: 'export',
+    status: 'in-progress',
+    statusText: 'Executing',
+    targets: 3,
+    receivedAt: new Date('2026-10-08T09:40:00Z'),
+  },
+  {
+    id: 'req-0005',
+    kind: 'deletion',
+    status: 'success',
+    statusText: 'Completed',
+    targets: 5,
+    receivedAt: new Date('2026-10-05T18:02:00Z'),
+  },
+  {
+    id: 'req-0004',
+    kind: 'deletion',
+    status: 'error',
+    statusText: 'Failed on 1 target',
+    targets: 5,
+    receivedAt: new Date('2026-10-03T11:25:00Z'),
+  },
+  {
+    id: 'req-0003',
+    kind: 'export',
+    status: 'stopped',
+    statusText: 'Rejected',
+    targets: 2,
+    receivedAt: new Date('2026-09-30T08:15:00Z'),
+  },
+  {
+    id: 'req-0002',
+    kind: 'deletion',
+    status: 'warning',
+    statusText: 'Identifier unresolved',
+    targets: 0,
+    receivedAt: new Date('2026-09-28T21:47:00Z'),
+  },
+  {
+    id: 'req-0001',
+    kind: 'export',
+    status: 'info',
+    statusText: 'Dry run ready',
+    targets: 3,
+    receivedAt: new Date('2026-09-27T16:30:00Z'),
+  },
 ]
 
 const COLUMNS: TableColumn<SampleRequest>[] = [
@@ -55,11 +103,22 @@ const COLUMNS: TableColumn<SampleRequest>[] = [
     id: 'receivedAt',
     header: 'Received',
     sortable: true,
-    cell: (item) => <time dateTime={item.receivedAt.toISOString()}>{formatDate(item.receivedAt)}</time>,
+    cell: (item) => (
+      <time dateTime={item.receivedAt.toISOString()}>{formatDate(item.receivedAt)}</time>
+    ),
   },
 ]
 
-const STATUS_TYPES: StatusType[] = ['success', 'error', 'warning', 'info', 'stopped', 'pending', 'in-progress', 'loading']
+const STATUS_TYPES: StatusType[] = [
+  'success',
+  'error',
+  'warning',
+  'info',
+  'stopped',
+  'pending',
+  'in-progress',
+  'loading',
+]
 
 export function ComponentsPage(handle: Handle<{ staff: Staff; csrfToken: string; url: URL }>) {
   return () => {
@@ -135,7 +194,11 @@ export function ComponentsPage(handle: Handle<{ staff: Staff; csrfToken: string;
             Components
           </Header>
 
-          <Container header={<Header description="Primary, normal, link, icon, and disabled.">Buttons</Header>}>
+          <Container
+            header={
+              <Header description="Primary, normal, link, icon, and disabled.">Buttons</Header>
+            }
+          >
             <SpaceBetween size="xs" direction="horizontal">
               <Button variant="primary">Approve</Button>
               <Button>Run dry run</Button>
@@ -174,7 +237,10 @@ export function ComponentsPage(handle: Handle<{ staff: Staff; csrfToken: string;
               items={[
                 { label: 'Request ID', value: <code>req-0007</code> },
                 { label: 'Type', value: <Badge>deletion</Badge> },
-                { label: 'Status', value: <StatusIndicator type="pending">Awaiting approval</StatusIndicator> },
+                {
+                  label: 'Status',
+                  value: <StatusIndicator type="pending">Awaiting approval</StatusIndicator>,
+                },
                 { label: 'Received', value: formatDate(SAMPLE_REQUESTS[0]!.receivedAt) },
                 { label: 'Source', value: 'Airtable' },
                 { label: 'Approver', value: '-' },
@@ -195,10 +261,16 @@ export function ComponentsPage(handle: Handle<{ staff: Staff; csrfToken: string;
             </Alert>
           </SpaceBetween>
 
-          <Container header={<Header description="Plain GET form so nothing changes.">Form fields</Header>}>
+          <Container
+            header={<Header description="Plain GET form so nothing changes.">Form fields</Header>}
+          >
             <form method="get" action={`${pageHref}#form`} id="form">
               <SpaceBetween size="l">
-                <FormField label="Requester" controlId="demo-requester" description="Email or Slack ID.">
+                <FormField
+                  label="Requester"
+                  controlId="demo-requester"
+                  description="Email or Slack ID."
+                >
                   <Input id="demo-requester" name="requester" placeholder="someone@example.com" />
                 </FormField>
                 <FormField label="Request type" controlId="demo-kind">

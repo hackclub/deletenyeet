@@ -9,7 +9,11 @@ const source = JSON.parse(
 ) as TokenFile
 
 type ModeValue = { light: string; dark: string }
-type TokenValue = string | ModeValue | { comfortable: string; compact: string } | { default: string; disabled: string }
+type TokenValue =
+  | string
+  | ModeValue
+  | { comfortable: string; compact: string }
+  | { default: string; disabled: string }
 type TokenFile = {
   tokens: Record<string, { $value: TokenValue }>
   contexts: Record<string, { tokens: Record<string, { $value: TokenValue }> }>
@@ -68,7 +72,12 @@ function isMode(value: TokenValue): value is ModeValue {
   return typeof value === 'object' && 'light' in value
 }
 
-function resolve(name: string, value: TokenValue, mode: 'light' | 'dark', darkSurface: boolean): string {
+function resolve(
+  name: string,
+  value: TokenValue,
+  mode: 'light' | 'dark',
+  darkSurface: boolean,
+): string {
   if (FONT_OVERRIDES[name]) return FONT_OVERRIDES[name]
   let resolved =
     typeof value === 'string'
@@ -78,7 +87,8 @@ function resolve(name: string, value: TokenValue, mode: 'light' | 'dark', darkSu
         : 'compact' in value
           ? value.compact
           : value.default
-  if (darkSurface && name.startsWith('color-background-')) return AMOLED_SURFACES[resolved] ?? resolved
+  if (darkSurface && name.startsWith('color-background-'))
+    return AMOLED_SURFACES[resolved] ?? resolved
   return resolved
 }
 
@@ -89,9 +99,13 @@ function block(selector: string, declarations: [string, string][]) {
 
 let names = Object.keys(source.tokens).filter(included).sort()
 
-let light = names.map((name) => [name, resolve(name, source.tokens[name]!.$value, 'light', false)] as [string, string])
+let light = names.map(
+  (name) => [name, resolve(name, source.tokens[name]!.$value, 'light', false)] as [string, string],
+)
 let dark = names
-  .map((name) => [name, resolve(name, source.tokens[name]!.$value, 'dark', true)] as [string, string])
+  .map(
+    (name) => [name, resolve(name, source.tokens[name]!.$value, 'dark', true)] as [string, string],
+  )
   .filter(([name, value]) => value !== light.find(([other]) => other === name)![1])
 
 let contextBlocks = CONTEXTS.map((context) => {
@@ -100,8 +114,17 @@ let contextBlocks = CONTEXTS.map((context) => {
   let diff = (mode: 'light' | 'dark') =>
     names
       .filter((name) => tokens[name] !== undefined)
-      .map((name) => [name, resolve(name, tokens[name]!.$value, mode, mode === 'dark' || alwaysDark)] as [string, string])
-      .filter(([name, value]) => value !== resolve(name, source.tokens[name]!.$value, mode, mode === 'dark'))
+      .map(
+        (name) =>
+          [name, resolve(name, tokens[name]!.$value, mode, mode === 'dark' || alwaysDark)] as [
+            string,
+            string,
+          ],
+      )
+      .filter(
+        ([name, value]) =>
+          value !== resolve(name, source.tokens[name]!.$value, mode, mode === 'dark'),
+      )
   let selector = `[data-context='${context}']`
   return [
     block(selector, diff('light')),
@@ -118,4 +141,6 @@ let css = [
 ].join('\n')
 
 await writeFile(OUTPUT, css.replace(/\n{3,}/g, '\n\n'))
-console.log(`wrote ${names.length} tokens (${dark.length} dark overrides) from design-tokens@${version}`)
+console.log(
+  `wrote ${names.length} tokens (${dark.length} dark overrides) from design-tokens@${version}`,
+)

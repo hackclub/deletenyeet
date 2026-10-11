@@ -59,7 +59,9 @@ export function applyTableState<T>(
     if (left === null) return 1
     if (right === null) return -1
     if (typeof left === 'string' && typeof right === 'string') {
-      return left.localeCompare(right, undefined, { numeric: true, sensitivity: 'base' }) * direction
+      return (
+        left.localeCompare(right, undefined, { numeric: true, sensitivity: 'base' }) * direction
+      )
     }
     return (left < right ? -1 : 1) * direction
   })

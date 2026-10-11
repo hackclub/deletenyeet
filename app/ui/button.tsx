@@ -20,7 +20,15 @@ export interface ButtonProps {
 
 export function Button(handle: Handle<ButtonProps>) {
   return () => {
-    let { children, variant = 'normal', href, iconName, ariaLabel, fullWidth, ...rest } = handle.props
+    let {
+      children,
+      variant = 'normal',
+      href,
+      iconName,
+      ariaLabel,
+      fullWidth,
+      ...rest
+    } = handle.props
     let className = [
       'button',
       `button--${variant}`,

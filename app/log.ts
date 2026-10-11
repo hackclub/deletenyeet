@@ -13,7 +13,9 @@ export function describeError(error: unknown): string {
   let frames = (error.stack ?? '').split('\n').filter((line) => line.trimStart().startsWith('at '))
   let description = [parts.join(' '), ...frames].join('\n')
 
-  return error.cause === undefined ? description : `${description}\ncaused by: ${describeError(error.cause)}`
+  return error.cause === undefined
+    ? description
+    : `${description}\ncaused by: ${describeError(error.cause)}`
 }
 
 export function logError(context: string, error: unknown) {

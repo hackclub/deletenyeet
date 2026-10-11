@@ -1,6 +1,13 @@
 import { keyring } from '../signing/keys.ts'
 import { mintTargetToken } from '../signing/tokens.ts'
-import { parseTargetResult, TargetCallError, type CallContext, type Subject, type Target, type TargetResult } from './types.ts'
+import {
+  parseTargetResult,
+  TargetCallError,
+  type CallContext,
+  type Subject,
+  type Target,
+  type TargetResult,
+} from './types.ts'
 
 const TIMEOUT_MS = 15_000
 const RETRYABLE_STATUSES = new Set([408, 425, 429, 500, 502, 503, 504])
@@ -22,8 +29,16 @@ export function readEndpointConfig(config: unknown): EndpointConfig | null {
   }
 }
 
-export function createEndpointTarget(options: { slug: string; audience: string; config: EndpointConfig }): Target {
-  async function call(subject: Subject, context: CallContext, dryRun: boolean): Promise<TargetResult> {
+export function createEndpointTarget(options: {
+  slug: string
+  audience: string
+  config: EndpointConfig
+}): Target {
+  async function call(
+    subject: Subject,
+    context: CallContext,
+    dryRun: boolean,
+  ): Promise<TargetResult> {
     let token = await mintTargetToken(keyring, {
       requestId: context.requestId,
       targetSlug: options.slug,
@@ -49,7 +64,11 @@ export function createEndpointTarget(options: { slug: string; audience: string; 
 
     if (!response.ok) {
       await response.body?.cancel()
-      throw new TargetCallError(`http_${response.status}`, RETRYABLE_STATUSES.has(response.status), response.status)
+      throw new TargetCallError(
+        `http_${response.status}`,
+        RETRYABLE_STATUSES.has(response.status),
+        response.status,
+      )
     }
 
     let body: unknown

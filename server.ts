@@ -26,12 +26,18 @@ await startJobs()
 
 const fakeTarget =
   env.NODE_ENV === 'development'
-    ? startFakeTarget({ port: env.FAKE_TARGET_PORT, jwksUrl: new URL('/.well-known/jwks.json', env.APP_ORIGIN).href })
+    ? startFakeTarget({
+        port: env.FAKE_TARGET_PORT,
+        jwksUrl: new URL('/.well-known/jwks.json', env.APP_ORIGIN).href,
+      })
     : null
 
-const sessionPruner = setInterval(() => {
-  pruneExpiredSessions(db).catch((error) => logError('session pruning', error))
-}, 60 * 60 * 1000)
+const sessionPruner = setInterval(
+  () => {
+    pruneExpiredSessions(db).catch((error) => logError('session pruning', error))
+  },
+  60 * 60 * 1000,
+)
 sessionPruner.unref()
 
 // tls ends at the reverse proxy so pin request urls to the public origin

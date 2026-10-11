@@ -154,7 +154,12 @@ async function loadDiscovery(issuer: string): Promise<Discovered> {
   if (metadata.issuer !== issuer) {
     throw new SafeError(`discovery issuer ${String(metadata.issuer)} does not match ${issuer}`)
   }
-  for (let key of ['authorization_endpoint', 'token_endpoint', 'userinfo_endpoint', 'jwks_uri'] as const) {
+  for (let key of [
+    'authorization_endpoint',
+    'token_endpoint',
+    'userinfo_endpoint',
+    'jwks_uri',
+  ] as const) {
     if (typeof metadata[key] !== 'string' || metadata[key].length === 0) {
       throw new SafeError(`discovery document is missing ${key}`)
     }

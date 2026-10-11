@@ -13,7 +13,9 @@ export function SpaceBetween(
     let { size, direction = 'vertical', children } = handle.props
     return (
       <div
-        class={direction === 'horizontal' ? 'space-between space-between--horizontal' : 'space-between'}
+        class={
+          direction === 'horizontal' ? 'space-between space-between--horizontal' : 'space-between'
+        }
         style={{ '--space-between-gap': `var(--space-scaled-${SIZES[size]})` }}
       >
         {children}

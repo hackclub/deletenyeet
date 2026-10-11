@@ -25,8 +25,16 @@ export interface AppLayoutProps {
 
 export function AppLayout(handle: Handle<AppLayoutProps>) {
   return () => {
-    let { title, homeHref, activeHref, navigation, utilities, breadcrumbs, notifications, children } =
-      handle.props
+    let {
+      title,
+      homeHref,
+      activeHref,
+      navigation,
+      utilities,
+      breadcrumbs,
+      notifications,
+      children,
+    } = handle.props
     return (
       <div class="app">
         <input
@@ -77,5 +85,7 @@ export function AppLayout(handle: Handle<AppLayoutProps>) {
 }
 
 function isActive(href: string, activeHref: string) {
-  return href === '/' ? activeHref === '/' : activeHref === href || activeHref.startsWith(`${href}/`)
+  return href === '/'
+    ? activeHref === '/'
+    : activeHref === href || activeHref.startsWith(`${href}/`)
 }

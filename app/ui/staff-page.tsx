@@ -30,18 +30,26 @@ function navigation(): SideNavigationSection[] {
     },
   ]
   if (env.NODE_ENV === 'development') {
-    sections.push({ title: 'Development', links: [{ text: 'Components', href: routes.dev.components.href() }] })
+    sections.push({
+      title: 'Development',
+      links: [{ text: 'Components', href: routes.dev.components.href() }],
+    })
   }
   return sections
 }
 
 export function StaffPage(handle: Handle<StaffPageProps>) {
   return () => {
-    let { title, staff, csrfToken, activeHref, breadcrumbs, flashes, refreshSeconds, children } = handle.props
+    let { title, staff, csrfToken, activeHref, breadcrumbs, flashes, refreshSeconds, children } =
+      handle.props
     return (
       <Document
         title={`${title} · Privacy request hub`}
-        head={refreshSeconds ? <meta http-equiv="refresh" content={String(refreshSeconds)} /> : undefined}
+        head={
+          refreshSeconds ? (
+            <meta http-equiv="refresh" content={String(refreshSeconds)} />
+          ) : undefined
+        }
       >
         <AppLayout
           title="Privacy request hub"

@@ -37,7 +37,10 @@ export interface RequestDetail {
 export async function loadRequestDetail(db: Database, id: string): Promise<RequestDetail | null> {
   let request = await db.find(requests, id)
   if (!request) return null
-  let identifiers = await db.findMany(requestIdentifiers, { where: { request_id: id }, orderBy: ['id', 'asc'] })
+  let identifiers = await db.findMany(requestIdentifiers, {
+    where: { request_id: id },
+    orderBy: ['id', 'asc'],
+  })
   let audit = await db.findMany(auditEvents, { where: { request_id: id }, orderBy: ['id', 'asc'] })
   let result = await db.exec(sql`
     select r.id::text as id, r.phase, r.status, r.attempts, r.found, r.deleted, r.retained,

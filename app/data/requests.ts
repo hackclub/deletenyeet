@@ -93,7 +93,10 @@ export async function transitionRequest(db: Database, transition: Transition): P
   await db.transaction(async (tx) => {
     let result = await tx.updateMany(
       requests,
-      { status: to, ...(to === 'completed' || to === 'partially_failed' ? { completed_at: new Date() } : {}) },
+      {
+        status: to,
+        ...(to === 'completed' || to === 'partially_failed' ? { completed_at: new Date() } : {}),
+      },
       { where: { id: requestId, status: from } },
     )
     if (result.affectedRows !== 1) {

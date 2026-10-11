@@ -8,7 +8,14 @@ export function Modal(
   return () => {
     let { id, header, footer, children } = handle.props
     return (
-      <div id={id} popover="auto" class="modal" role="dialog" aria-modal="true" aria-labelledby={`${id}-title`}>
+      <div
+        id={id}
+        popover="auto"
+        class="modal"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={`${id}-title`}
+      >
         <div class="modal__header">
           <h2 class="modal__title" id={`${id}-title`}>
             {header}

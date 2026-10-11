@@ -29,9 +29,19 @@ const COLUMNS: TableColumn<Target>[] = [
     sortable: true,
     cell: (item) => <a href={routes.targets.edit.href({ id: item.id })}>{item.name}</a>,
   },
-  { id: 'slug', header: 'Slug', sortable: true, cell: (item) => <span class="mono">{item.slug}</span> },
+  {
+    id: 'slug',
+    header: 'Slug',
+    sortable: true,
+    cell: (item) => <span class="mono">{item.slug}</span>,
+  },
   { id: 'type', header: 'Type', sortable: true, cell: (item) => <Badge>{item.type}</Badge> },
-  { id: 'audience', header: 'Audience', sortable: true, cell: (item) => <span class="mono">{item.audience ?? '-'}</span> },
+  {
+    id: 'audience',
+    header: 'Audience',
+    sortable: true,
+    cell: (item) => <span class="mono">{item.audience ?? '-'}</span>,
+  },
   {
     id: 'url',
     header: 'Endpoint',
@@ -50,7 +60,9 @@ const COLUMNS: TableColumn<Target>[] = [
   },
 ]
 
-export function TargetsIndexPage(handle: Handle<PageBase & { targets: Target[]; url: URL; development: boolean }>) {
+export function TargetsIndexPage(
+  handle: Handle<PageBase & { targets: Target[]; url: URL; development: boolean }>,
+) {
   return () => {
     let { staff, csrfToken, flashes, targets, url, development } = handle.props
     let state = readTableState(url, {
@@ -62,7 +74,13 @@ export function TargetsIndexPage(handle: Handle<PageBase & { targets: Target[]; 
       sortValue: (item, column) => String(item[column as keyof Target] ?? ''),
     })
     return (
-      <StaffPage title="Targets" staff={staff} csrfToken={csrfToken} activeHref={routes.targets.index.href()} flashes={flashes}>
+      <StaffPage
+        title="Targets"
+        staff={staff}
+        csrfToken={csrfToken}
+        activeHref={routes.targets.index.href()}
+        flashes={flashes}
+      >
         <SpaceBetween size="l">
           <Header
             variant="h1"
@@ -121,7 +139,9 @@ export function TargetFormPage(
     let { staff, csrfToken, flashes, target, values, errors } = handle.props
     let editing = target !== null
     let title = target ? target.name : 'Register target'
-    let action = target ? routes.targets.update.href({ id: target.id }) : routes.targets.create.href()
+    let action = target
+      ? routes.targets.update.href({ id: target.id })
+      : routes.targets.create.href()
     let selfHref = target ? routes.targets.edit.href({ id: target.id }) : routes.targets.new.href()
     return (
       <StaffPage
@@ -138,14 +158,26 @@ export function TargetFormPage(
         <form method="post" action={action}>
           <input type="hidden" name="_csrf" value={csrfToken} />
           <SpaceBetween size="l">
-            <Header variant="h1" description="Endpoint targets implement POST /api/privacy/delete and /export and verify our JWKS.">
+            <Header
+              variant="h1"
+              description="Endpoint targets implement POST /api/privacy/delete and /export and verify our JWKS."
+            >
               {title}
             </Header>
-            <Alert type="info">Airtable, Slack, Loops, Hackatime, and Auth target types come later. Only endpoint targets can be registered for now.</Alert>
+            <Alert type="info">
+              Airtable, Slack, Loops, Hackatime, and Auth target types come later. Only endpoint
+              targets can be registered for now.
+            </Alert>
             <Container header={<Header>Endpoint target</Header>}>
               <SpaceBetween size="l">
                 <FormField label="Name" controlId="name" errorText={errors.name}>
-                  <Input id="name" name="name" value={values.name} required invalid={Boolean(errors.name)} />
+                  <Input
+                    id="name"
+                    name="name"
+                    value={values.name}
+                    required
+                    invalid={Boolean(errors.name)}
+                  />
                 </FormField>
                 <FormField
                   label="Slug"
@@ -153,13 +185,44 @@ export function TargetFormPage(
                   description="Lowercase words joined by dashes. Used in token IDs and can't change later."
                   errorText={errors.slug}
                 >
-                  <Input id="slug" name="slug" value={values.slug} required disabled={editing} invalid={Boolean(errors.slug)} />
+                  <Input
+                    id="slug"
+                    name="slug"
+                    value={values.slug}
+                    required
+                    disabled={editing}
+                    invalid={Boolean(errors.slug)}
+                  />
                 </FormField>
-                <FormField label="Audience" controlId="audience" description="The aud claim the program checks, e.g. summer-of-making." errorText={errors.audience}>
-                  <Input id="audience" name="audience" value={values.audience} required invalid={Boolean(errors.audience)} />
+                <FormField
+                  label="Audience"
+                  controlId="audience"
+                  description="The aud claim the program checks, e.g. summer-of-making."
+                  errorText={errors.audience}
+                >
+                  <Input
+                    id="audience"
+                    name="audience"
+                    value={values.audience}
+                    required
+                    invalid={Boolean(errors.audience)}
+                  />
                 </FormField>
-                <FormField label="Base URL" controlId="url" description="The hub posts to <base URL>/api/privacy/delete and /export." errorText={errors.url}>
-                  <Input id="url" name="url" type="url" value={values.url} required invalid={Boolean(errors.url)} placeholder="https://summer.hackclub.com" />
+                <FormField
+                  label="Base URL"
+                  controlId="url"
+                  description="The hub posts to <base URL>/api/privacy/delete and /export."
+                  errorText={errors.url}
+                >
+                  <Input
+                    id="url"
+                    name="url"
+                    type="url"
+                    value={values.url}
+                    required
+                    invalid={Boolean(errors.url)}
+                    placeholder="https://summer.hackclub.com"
+                  />
                 </FormField>
                 <Checkbox id="enabled" name="enabled" checked={values.enabled}>
                   Enabled: include this target in new dry runs

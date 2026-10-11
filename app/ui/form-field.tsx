@@ -57,8 +57,18 @@ export function Input(
   >,
 ) {
   return () => {
-    let { id, name, value, required, disabled, invalid, placeholder, describedBy, type, autocomplete } =
-      handle.props
+    let {
+      id,
+      name,
+      value,
+      required,
+      disabled,
+      invalid,
+      placeholder,
+      describedBy,
+      type,
+      autocomplete,
+    } = handle.props
     return (
       <input
         class="input"
@@ -79,7 +89,8 @@ export function Input(
 
 export function Textarea(handle: Handle<ControlProps & { rows?: number }>) {
   return () => {
-    let { id, name, value, required, disabled, invalid, placeholder, describedBy, rows } = handle.props
+    let { id, name, value, required, disabled, invalid, placeholder, describedBy, rows } =
+      handle.props
     return (
       <textarea
         class="input"
@@ -123,13 +134,26 @@ export function Select(
 }
 
 export function Checkbox(
-  handle: Handle<{ id: string; name: string; checked?: boolean; disabled?: boolean; children: RemixNode }>,
+  handle: Handle<{
+    id: string
+    name: string
+    checked?: boolean
+    disabled?: boolean
+    children: RemixNode
+  }>,
 ) {
   return () => {
     let { id, name, checked, disabled, children } = handle.props
     return (
       <label class="checkbox" for={id}>
-        <input type="checkbox" id={id} name={name} value="on" checked={checked} disabled={disabled} />
+        <input
+          type="checkbox"
+          id={id}
+          name={name}
+          value="on"
+          checked={checked}
+          disabled={disabled}
+        />
         <span>{children}</span>
       </label>
     )

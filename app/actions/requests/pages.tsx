@@ -47,14 +47,23 @@ const LIST_COLUMNS: TableColumn<PrivacyRequest>[] = [
     header: 'Status',
     sortable: true,
     cell: (item) => (
-      <StatusIndicator type={REQUEST_STATUS[item.status].type}>{REQUEST_STATUS[item.status].label}</StatusIndicator>
+      <StatusIndicator type={REQUEST_STATUS[item.status].type}>
+        {REQUEST_STATUS[item.status].label}
+      </StatusIndicator>
     ),
   },
   { id: 'source', header: 'Source', sortable: true, cell: (item) => item.source },
-  { id: 'created_at', header: 'Received', sortable: true, cell: (item) => formatTime(item.created_at) },
+  {
+    id: 'created_at',
+    header: 'Received',
+    sortable: true,
+    cell: (item) => formatTime(item.created_at),
+  },
 ]
 
-export function RequestsIndexPage(handle: Handle<PageBase & { requests: PrivacyRequest[]; url: URL }>) {
+export function RequestsIndexPage(
+  handle: Handle<PageBase & { requests: PrivacyRequest[]; url: URL }>,
+) {
   return () => {
     let { staff, csrfToken, flashes, requests, url } = handle.props
     let state = readTableState(url, {
@@ -63,9 +72,12 @@ export function RequestsIndexPage(handle: Handle<PageBase & { requests: PrivacyR
       defaultDescending: true,
     })
     let items = applyTableState(requests, state, {
-      filterText: (item) => `${item.id} ${item.type} ${REQUEST_STATUS[item.status].label} ${item.source}`,
+      filterText: (item) =>
+        `${item.id} ${item.type} ${REQUEST_STATUS[item.status].label} ${item.source}`,
       sortValue: (item, column) =>
-        column === 'created_at' ? new Date(item.created_at as string).getTime() : String(item[column as keyof PrivacyRequest]),
+        column === 'created_at'
+          ? new Date(item.created_at as string).getTime()
+          : String(item[column as keyof PrivacyRequest]),
     })
     let refresh = requests.some((item) => ACTIVE_STATUSES.includes(item.status)) ? 10 : undefined
 
@@ -115,7 +127,9 @@ export interface NewRequestValues {
 }
 
 export function NewRequestPage(
-  handle: Handle<PageBase & { values: NewRequestValues; errors: Partial<Record<keyof NewRequestValues, string>> }>,
+  handle: Handle<
+    PageBase & { values: NewRequestValues; errors: Partial<Record<keyof NewRequestValues, string>> }
+  >,
 ) {
   return () => {
     let { staff, csrfToken, flashes, values, errors } = handle.props
@@ -134,7 +148,10 @@ export function NewRequestPage(
         <form method="post" action={routes.requests.create.href()}>
           <CsrfField token={csrfToken} />
           <SpaceBetween size="l">
-            <Header variant="h1" description="Nothing is sent to any target until a dry run has been reviewed and approved.">
+            <Header
+              variant="h1"
+              description="Nothing is sent to any target until a dry run has been reviewed and approved."
+            >
               New request
             </Header>
             <Container header={<Header>Subject</Header>}>
@@ -151,7 +168,15 @@ export function NewRequestPage(
                   />
                 </FormField>
                 <FormField label="Email" controlId="email" errorText={errors.email}>
-                  <Input id="email" name="email" type="email" value={values.email} required invalid={Boolean(errors.email)} autocomplete="off" />
+                  <Input
+                    id="email"
+                    name="email"
+                    type="email"
+                    value={values.email}
+                    required
+                    invalid={Boolean(errors.email)}
+                    autocomplete="off"
+                  />
                 </FormField>
                 <FormField
                   label="Slack ID - optional"
@@ -159,10 +184,27 @@ export function NewRequestPage(
                   description="Until Hack Club Auth lookup is wired up, add any identifiers you already know."
                   errorText={errors.slackId}
                 >
-                  <Input id="slack_id" name="slack_id" value={values.slackId} invalid={Boolean(errors.slackId)} placeholder="U0123ABCD" autocomplete="off" />
+                  <Input
+                    id="slack_id"
+                    name="slack_id"
+                    value={values.slackId}
+                    invalid={Boolean(errors.slackId)}
+                    placeholder="U0123ABCD"
+                    autocomplete="off"
+                  />
                 </FormField>
-                <FormField label="Hack Club Auth identity ID - optional" controlId="identity_id" errorText={errors.identityId}>
-                  <Input id="identity_id" name="identity_id" value={values.identityId} invalid={Boolean(errors.identityId)} autocomplete="off" />
+                <FormField
+                  label="Hack Club Auth identity ID - optional"
+                  controlId="identity_id"
+                  errorText={errors.identityId}
+                >
+                  <Input
+                    id="identity_id"
+                    name="identity_id"
+                    value={values.identityId}
+                    invalid={Boolean(errors.identityId)}
+                    autocomplete="off"
+                  />
                 </FormField>
               </SpaceBetween>
             </Container>
@@ -213,7 +255,9 @@ function Retained(handle: Handle<{ retained: ResultView['retained'] }>) {
   }
 }
 
-function ResultsTable(handle: Handle<{ results: ResultView[]; phase: TargetPhase; type: 'delete' | 'export' }>) {
+function ResultsTable(
+  handle: Handle<{ results: ResultView[]; phase: TargetPhase; type: 'delete' | 'export' }>,
+) {
   return () => {
     let { results, phase, type } = handle.props
     return (
@@ -224,7 +268,9 @@ function ResultsTable(handle: Handle<{ results: ResultView[]; phase: TargetPhase
               <th scope="col">Target</th>
               <th scope="col">Status</th>
               <th scope="col">Found</th>
-              <th scope="col">{type === 'export' ? 'Records' : phase === 'dry_run' ? 'Would delete' : 'Deleted'}</th>
+              <th scope="col">
+                {type === 'export' ? 'Records' : phase === 'dry_run' ? 'Would delete' : 'Deleted'}
+              </th>
               <th scope="col">Retained</th>
               <th scope="col">Attempts</th>
             </tr>
@@ -233,7 +279,9 @@ function ResultsTable(handle: Handle<{ results: ResultView[]; phase: TargetPhase
             {results.length === 0 ? (
               <tr>
                 <td class="table__empty" colSpan={6}>
-                  {phase === 'dry_run' ? 'No targets were enabled for the dry run' : 'Not executed yet'}
+                  {phase === 'dry_run'
+                    ? 'No targets were enabled for the dry run'
+                    : 'Not executed yet'}
                 </td>
               </tr>
             ) : (
@@ -247,9 +295,13 @@ function ResultsTable(handle: Handle<{ results: ResultView[]; phase: TargetPhase
                     </td>
                     <td>
                       <StatusIndicator type={status.type}>{status.label}</StatusIndicator>
-                      {result.errorCode ? <div class="text-secondary text-small mono">{result.errorCode}</div> : null}
+                      {result.errorCode ? (
+                        <div class="text-secondary text-small mono">{result.errorCode}</div>
+                      ) : null}
                       {result.status === 'retrying' ? (
-                        <div class="text-secondary text-small">next {formatTime(result.nextAttemptAt)}</div>
+                        <div class="text-secondary text-small">
+                          next {formatTime(result.nextAttemptAt)}
+                        </div>
                       ) : null}
                     </td>
                     <td>{result.found === null ? '-' : result.found ? 'Yes' : 'No'}</td>
@@ -273,7 +325,8 @@ function ResultsTable(handle: Handle<{ results: ResultView[]; phase: TargetPhase
 
 function sumDeleted(results: ResultView[]): number {
   return results.reduce(
-    (total, result) => total + Object.values(result.deleted ?? {}).reduce((sum, count) => sum + count, 0),
+    (total, result) =>
+      total + Object.values(result.deleted ?? {}).reduce((sum, count) => sum + count, 0),
     0,
   )
 }
@@ -289,7 +342,9 @@ export function RequestShowPage(handle: Handle<PageBase & { detail: RequestDetai
     let executionFailures = execution.filter((result) => result.status === 'failed')
     let awaiting = request.status === 'awaiting_approval'
     let canApprove = awaiting && dryRunFailures.length === 0
-    let canReject = ['received', 'resolving', 'dry_running', 'awaiting_approval'].includes(request.status)
+    let canReject = ['received', 'resolving', 'dry_running', 'awaiting_approval'].includes(
+      request.status,
+    )
     let id = request.id
     let tabHref = (next: string) => `${routes.requests.show.href({ id })}?tab=${next}`
     let decided = request.decision
@@ -322,14 +377,18 @@ export function RequestShowPage(handle: Handle<PageBase & { detail: RequestDetai
     if (request.status === 'partially_failed') {
       alerts.push(
         <Alert type="error" header="Some targets failed">
-          {executionFailures.map((result) => `${result.targetName} (${result.errorCode})`).join(', ')} did not complete
-          after their last retry.
+          {executionFailures
+            .map((result) => `${result.targetName} (${result.errorCode})`)
+            .join(', ')}{' '}
+          did not complete after their last retry.
         </Alert>,
       )
     }
     if (ACTIVE_STATUSES.includes(request.status)) {
       alerts.push(
-        <Alert type="info">This page refreshes every 5 seconds while the request is {status.label.toLowerCase()}.</Alert>,
+        <Alert type="info">
+          This page refreshes every 5 seconds while the request is {status.label.toLowerCase()}.
+        </Alert>,
       )
     }
 
@@ -361,7 +420,8 @@ export function RequestShowPage(handle: Handle<PageBase & { detail: RequestDetai
               </SpaceBetween>
             }
           >
-            {request.type === 'delete' ? 'Deletion' : 'Export'} request <span class="mono">{shortId(id)}</span>
+            {request.type === 'delete' ? 'Deletion' : 'Export'} request{' '}
+            <span class="mono">{shortId(id)}</span>
           </Header>
 
           {alerts.length > 0 ? <SpaceBetween size="s">{alerts}</SpaceBetween> : null}
@@ -372,8 +432,19 @@ export function RequestShowPage(handle: Handle<PageBase & { detail: RequestDetai
               items={[
                 { label: 'Request ID', value: <span class="mono">{id}</span> },
                 { label: 'Type', value: <Badge>{request.type}</Badge> },
-                { label: 'Source', value: request.source === 'airtable' ? `Airtable ${request.source_ref}` : 'Manual' },
-                { label: 'Created by', value: request.created_by ? <span class="mono">{request.created_by}</span> : 'System' },
+                {
+                  label: 'Source',
+                  value:
+                    request.source === 'airtable' ? `Airtable ${request.source_ref}` : 'Manual',
+                },
+                {
+                  label: 'Created by',
+                  value: request.created_by ? (
+                    <span class="mono">{request.created_by}</span>
+                  ) : (
+                    'System'
+                  ),
+                },
                 { label: 'Received', value: formatTime(request.created_at) },
                 { label: 'Decision', value: decided },
                 { label: 'Completed', value: formatTime(request.completed_at) },
@@ -384,7 +455,9 @@ export function RequestShowPage(handle: Handle<PageBase & { detail: RequestDetai
                       {identifiers.map((identifier) => (
                         <li key={String(identifier.id)}>
                           <span class="text-secondary">{identifier.kind}</span>{' '}
-                          <span class="mono">{identifier.hashed ? 'redacted' : identifier.value}</span>
+                          <span class="mono">
+                            {identifier.hashed ? 'redacted' : identifier.value}
+                          </span>
                         </li>
                       ))}
                     </ul>
@@ -400,7 +473,11 @@ export function RequestShowPage(handle: Handle<PageBase & { detail: RequestDetai
               activeId={tab}
               tabs={[
                 { id: 'review', label: `Dry run (${dryRun.length})`, href: tabHref('review') },
-                { id: 'execution', label: `Execution (${execution.length})`, href: tabHref('execution') },
+                {
+                  id: 'execution',
+                  label: `Execution (${execution.length})`,
+                  href: tabHref('execution'),
+                },
                 { id: 'audit', label: `Audit trail (${audit.length})`, href: tabHref('audit') },
               ]}
             >
@@ -421,7 +498,9 @@ export function RequestShowPage(handle: Handle<PageBase & { detail: RequestDetai
                           <td>{formatTime(event.occurred_at)}</td>
                           <td>
                             {event.actor_type}
-                            {event.actor_id ? <div class="mono text-secondary text-small">{event.actor_id}</div> : null}
+                            {event.actor_id ? (
+                              <div class="mono text-secondary text-small">{event.actor_id}</div>
+                            ) : null}
                           </td>
                           <td class="mono">{event.action}</td>
                           <td class="mono">{JSON.stringify(event.detail)}</td>
@@ -438,13 +517,22 @@ export function RequestShowPage(handle: Handle<PageBase & { detail: RequestDetai
                       tab === 'execution'
                         ? [
                             { label: 'Targets', value: String(execution.length) },
-                            { label: request.type === 'export' ? 'Records' : 'Records deleted', value: String(sumDeleted(execution)) },
+                            {
+                              label: request.type === 'export' ? 'Records' : 'Records deleted',
+                              value: String(sumDeleted(execution)),
+                            },
                             { label: 'Failed', value: String(executionFailures.length) },
                           ]
                         : [
                             { label: 'Targets', value: String(dryRun.length) },
-                            { label: 'Found in', value: String(dryRun.filter((result) => result.found).length) },
-                            { label: request.type === 'export' ? 'Records' : 'Records to delete', value: String(sumDeleted(dryRun)) },
+                            {
+                              label: 'Found in',
+                              value: String(dryRun.filter((result) => result.found).length),
+                            },
+                            {
+                              label: request.type === 'export' ? 'Records' : 'Records to delete',
+                              value: String(sumDeleted(dryRun)),
+                            },
                           ]
                     }
                   />
@@ -466,7 +554,12 @@ export function RequestShowPage(handle: Handle<PageBase & { detail: RequestDetai
             <form method="post" action={routes.requests.approve.href({ id })}>
               <CsrfField token={csrfToken} />
               <SpaceBetween size="xs" direction="horizontal">
-                <Button variant="link" type="button" popovertarget="approve-modal" popovertargetaction="hide">
+                <Button
+                  variant="link"
+                  type="button"
+                  popovertarget="approve-modal"
+                  popovertargetaction="hide"
+                >
                   Cancel
                 </Button>
                 <Button variant="primary" type="submit">
@@ -487,7 +580,12 @@ export function RequestShowPage(handle: Handle<PageBase & { detail: RequestDetai
             <form method="post" action={routes.requests.reject.href({ id })}>
               <CsrfField token={csrfToken} />
               <SpaceBetween size="xs" direction="horizontal">
-                <Button variant="link" type="button" popovertarget="reject-modal" popovertargetaction="hide">
+                <Button
+                  variant="link"
+                  type="button"
+                  popovertarget="reject-modal"
+                  popovertargetaction="hide"
+                >
                   Cancel
                 </Button>
                 <Button type="submit">Reject</Button>

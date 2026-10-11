@@ -48,7 +48,9 @@ export async function loadKeyring(source: KeyringSource): Promise<Keyring> {
   }
   if (source.NODE_ENV === 'development') {
     let keyring = await createEphemeralKeyring()
-    console.warn(`signing keys: none configured, using ephemeral development key ${keyring.activeKid}`)
+    console.warn(
+      `signing keys: none configured, using ephemeral development key ${keyring.activeKid}`,
+    )
     return keyring
   }
   throw new SigningKeyError('SIGNING_KEYS or SIGNING_KEYS_FILE is required')
@@ -97,7 +99,12 @@ export async function generateSigningJwk(now = new Date()): Promise<JWK & { kid:
   let { privateKey } = await generateKeyPair(SIGNING_ALG, { extractable: true })
   let jwk = await exportJWK(privateKey)
   let thumbprint = await calculateJwkThumbprint(jwk)
-  return { ...jwk, kid: `${now.toISOString().slice(0, 10)}-${thumbprint.slice(0, 8)}`, alg: SIGNING_ALG, use: 'sig' }
+  return {
+    ...jwk,
+    kid: `${now.toISOString().slice(0, 10)}-${thumbprint.slice(0, 8)}`,
+    alg: SIGNING_ALG,
+    use: 'sig',
+  }
 }
 
 async function createEphemeralKeyring(): Promise<Keyring> {
@@ -111,16 +118,22 @@ function readJwk(entry: unknown, index: number): SigningJwk {
   let where = `keys[${index}]`
   if (!isRecord(entry)) throw new SigningKeyError(`${where} is not an object`)
   if (typeof entry.kid !== 'string' || !/^[A-Za-z0-9._-]{1,64}$/.test(entry.kid)) {
-    throw new SigningKeyError(`${where} needs a kid of 1 to 64 letters, digits, dot, dash, or underscore`)
+    throw new SigningKeyError(
+      `${where} needs a kid of 1 to 64 letters, digits, dot, dash, or underscore`,
+    )
   }
   let label = `${where} (${entry.kid})`
-  if (entry.kty !== 'EC' || entry.crv !== 'P-256') throw new SigningKeyError(`${label} must be an EC P-256 key`)
+  if (entry.kty !== 'EC' || entry.crv !== 'P-256')
+    throw new SigningKeyError(`${label} must be an EC P-256 key`)
   if (typeof entry.x !== 'string' || typeof entry.y !== 'string') {
     throw new SigningKeyError(`${label} is missing x or y`)
   }
-  if (entry.d !== undefined && typeof entry.d !== 'string') throw new SigningKeyError(`${label} has an invalid d`)
-  if (entry.alg !== undefined && entry.alg !== SIGNING_ALG) throw new SigningKeyError(`${label} alg must be ES256`)
-  if (entry.use !== undefined && entry.use !== 'sig') throw new SigningKeyError(`${label} use must be sig`)
+  if (entry.d !== undefined && typeof entry.d !== 'string')
+    throw new SigningKeyError(`${label} has an invalid d`)
+  if (entry.alg !== undefined && entry.alg !== SIGNING_ALG)
+    throw new SigningKeyError(`${label} alg must be ES256`)
+  if (entry.use !== undefined && entry.use !== 'sig')
+    throw new SigningKeyError(`${label} use must be sig`)
   return entry as SigningJwk
 }
 
@@ -134,7 +147,9 @@ async function importPrivate(kid: string, jwk: JWK): Promise<CryptoKey> {
     if (!(key instanceof CryptoKey) || key.type !== 'private') throw new Error()
     return key
   } catch {
-    throw new SigningKeyError(`${kid} private key could not be imported or does not match its x and y`)
+    throw new SigningKeyError(
+      `${kid} private key could not be imported or does not match its x and y`,
+    )
   }
 }
 

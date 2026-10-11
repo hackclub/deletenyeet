@@ -25,7 +25,11 @@ function rows<T>(result: { rows?: unknown[] }): T[] {
   return (result.rows ?? []) as T[]
 }
 
-async function openResultIds(db: Database, requestId: string, phase: TargetPhase): Promise<string[]> {
+async function openResultIds(
+  db: Database,
+  requestId: string,
+  phase: TargetPhase,
+): Promise<string[]> {
   let result = await db.exec(sql`
     select id::text as id from target_results
     where request_id = ${requestId} and phase = ${phase} and status in ('pending', 'retrying')
@@ -39,7 +43,12 @@ async function enqueueOpen(db: Database, requestId: string, phase: TargetPhase) 
   }
 }
 
-export async function startDryRun(db: Database, requestId: string, from: 'resolving' | 'awaiting_approval', actor: AuditActor) {
+export async function startDryRun(
+  db: Database,
+  requestId: string,
+  from: 'resolving' | 'awaiting_approval',
+  actor: AuditActor,
+) {
   await db.transaction(async (tx) => {
     await transitionRequest(tx, { requestId, from, to: 'dry_running', actor })
     let inserted = await tx.exec(sql`
@@ -61,7 +70,11 @@ export async function startDryRun(db: Database, requestId: string, from: 'resolv
   await finishPhaseIfComplete(db, requestId, 'dry_run')
 }
 
-export async function approveRequest(db: Database, requestId: string, actor: Extract<AuditActor, { type: 'staff' | 'slack' }>) {
+export async function approveRequest(
+  db: Database,
+  requestId: string,
+  actor: Extract<AuditActor, { type: 'staff' | 'slack' }>,
+) {
   await db.transaction(async (tx) => {
     let blocking = await tx.exec(sql`
       select count(*)::int as count from target_results
@@ -147,7 +160,11 @@ export async function runTargetCall(db: Database, resultId: string) {
   let request = await db.find(requests, claim.request_id)
   let target = await db.find(targets, claim.target_id)
   let activeStatus: RequestStatus = claim.phase === 'dry_run' ? 'dry_running' : 'executing'
-  let detail = { target: target?.slug ?? claim.target_id, phase: claim.phase, attempt: claim.attempts }
+  let detail = {
+    target: target?.slug ?? claim.target_id,
+    phase: claim.phase,
+    attempt: claim.attempts,
+  }
 
   try {
     if (!request || !target) throw new TargetCallError('missing_row', false)
@@ -199,7 +216,9 @@ export async function runTargetCall(db: Database, resultId: string) {
           detail: { ...detail, error: failure.code, retry_in_seconds: delay },
         })
       })
-      console.warn(`request ${claim.request_id} target ${detail.target} ${claim.phase} attempt ${claim.attempts} ${failure.code}, retrying in ${delay}s`)
+      console.warn(
+        `request ${claim.request_id} target ${detail.target} ${claim.phase} attempt ${claim.attempts} ${failure.code}, retrying in ${delay}s`,
+      )
       await enqueueCall(resultId, nextAttempt)
       return
     }
@@ -217,7 +236,9 @@ export async function runTargetCall(db: Database, resultId: string) {
         detail: { ...detail, error: failure.code },
       })
     })
-    console.warn(`request ${claim.request_id} target ${detail.target} ${claim.phase} failed: ${failure.code}`)
+    console.warn(
+      `request ${claim.request_id} target ${detail.target} ${claim.phase} failed: ${failure.code}`,
+    )
   }
 
   await finishPhaseIfComplete(db, claim.request_id, claim.phase)
@@ -238,7 +259,12 @@ async function failExhausted(db: Database, resultId: string) {
         actor: SYSTEM,
         action: 'target.failed',
         requestId: row.request_id,
-        detail: { result: resultId, phase: row.phase, attempt: row.attempts, error: 'attempts_exhausted' },
+        detail: {
+          result: resultId,
+          phase: row.phase,
+          attempt: row.attempts,
+          error: 'attempts_exhausted',
+        },
       })
     }
     return row
@@ -324,7 +350,11 @@ export async function sweep(db: Database) {
       if (request.status === 'received' || request.status === 'resolving') {
         await resolveRequest(db, request.id)
       } else {
-        await finishPhaseIfComplete(db, request.id, request.status === 'dry_running' ? 'dry_run' : 'execute')
+        await finishPhaseIfComplete(
+          db,
+          request.id,
+          request.status === 'dry_running' ? 'dry_run' : 'execute',
+        )
       }
     } catch (error) {
       logError(`sweep ${request.id}`, error)

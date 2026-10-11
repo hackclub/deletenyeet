@@ -6,7 +6,9 @@ export interface Tab {
   href: string
 }
 
-export function Tabs(handle: Handle<{ tabs: Tab[]; activeId: string; label: string; children: RemixNode }>) {
+export function Tabs(
+  handle: Handle<{ tabs: Tab[]; activeId: string; label: string; children: RemixNode }>,
+) {
   return () => {
     let { tabs, activeId, label, children } = handle.props
     return (

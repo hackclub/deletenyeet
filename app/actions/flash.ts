@@ -17,5 +17,13 @@ export function setFlash(session: Session, flash: StoredFlash) {
 export function takeFlashes(session: Session): FlashItem[] {
   let flash = session.get(FLASH_KEY) as StoredFlash | undefined
   if (!flash) return []
-  return [{ id: 'flash', type: flash.type, header: flash.header, content: flash.content, dismissible: true }]
+  return [
+    {
+      id: 'flash',
+      type: flash.type,
+      header: flash.header,
+      content: flash.content,
+      dismissible: true,
+    },
+  ]
 }

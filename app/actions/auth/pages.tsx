@@ -22,7 +22,10 @@ export function LoginPage(handle: Handle<{ csrfToken: string; error?: string; re
         <main class="centered-page">
           <Container
             header={
-              <Header variant="h1" description="Hack Club staff only. Sign in with your Hack Club account.">
+              <Header
+                variant="h1"
+                description="Hack Club staff only. Sign in with your Hack Club account."
+              >
                 Privacy request hub
               </Header>
             }
@@ -58,8 +61,8 @@ export function DeniedPage(handle: Handle<{ sub: string; name: string | null }>)
           <Container header={<Header variant="h1">Not on the staff allowlist</Header>}>
             <SpaceBetween size="m">
               <Alert type="warning">
-                {name ? `${name}, your` : 'Your'} Hack Club account signed in, but it is not allowed to use
-                this tool. Ask an admin to add this ID to <code>STAFF_SUBS</code>.
+                {name ? `${name}, your` : 'Your'} Hack Club account signed in, but it is not allowed
+                to use this tool. Ask an admin to add this ID to <code>STAFF_SUBS</code>.
               </Alert>
               <code>{sub}</code>
               <Button href={routes.auth.login.href()}>Back to sign in</Button>

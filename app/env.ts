@@ -70,9 +70,12 @@ export function parseEnv(source: Record<string, string | undefined>): Env {
   let problems: string[] = []
 
   if (env.NODE_ENV === 'production') {
-    if (!env.APP_ORIGIN.startsWith('https:')) problems.push('APP_ORIGIN: must be https in production')
-    if (!env.HCA_ISSUER.startsWith('https:')) problems.push('HCA_ISSUER: must be https in production')
-    if (env.STAFF_SUBS.length === 0) problems.push('STAFF_SUBS: must list at least one sub in production')
+    if (!env.APP_ORIGIN.startsWith('https:'))
+      problems.push('APP_ORIGIN: must be https in production')
+    if (!env.HCA_ISSUER.startsWith('https:'))
+      problems.push('HCA_ISSUER: must be https in production')
+    if (env.STAFF_SUBS.length === 0)
+      problems.push('STAFF_SUBS: must list at least one sub in production')
     if (!env.SIGNING_KEYS && !env.SIGNING_KEYS_FILE) {
       problems.push('SIGNING_KEYS or SIGNING_KEYS_FILE: required in production')
     }

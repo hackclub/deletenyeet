@@ -11,7 +11,12 @@ import { routes } from '../../routes.ts'
 import { setFlash, takeFlashes } from '../flash.ts'
 import { listRequests, loadRequestDetail } from './data.ts'
 import { UUID_PATTERN } from './format.ts'
-import { NewRequestPage, RequestShowPage, RequestsIndexPage, type NewRequestValues } from './pages.tsx'
+import {
+  NewRequestPage,
+  RequestShowPage,
+  RequestsIndexPage,
+  type NewRequestValues,
+} from './pages.tsx'
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 const SLACK_ID_PATTERN = /^[UW][A-Z0-9]{4,20}$/
@@ -60,9 +65,12 @@ export default createController(routes.requests, {
         identityId: field('identity_id'),
       }
       let errors: Partial<Record<keyof NewRequestValues, string>> = {}
-      if (values.type !== 'delete' && values.type !== 'export') errors.type = 'Choose delete or export.'
-      if (!EMAIL_PATTERN.test(values.email) || values.email.length > 320) errors.email = 'Enter a valid email address.'
-      if (values.slackId && !SLACK_ID_PATTERN.test(values.slackId)) errors.slackId = 'Slack IDs look like U0123ABCD.'
+      if (values.type !== 'delete' && values.type !== 'export')
+        errors.type = 'Choose delete or export.'
+      if (!EMAIL_PATTERN.test(values.email) || values.email.length > 320)
+        errors.email = 'Enter a valid email address.'
+      if (values.slackId && !SLACK_ID_PATTERN.test(values.slackId))
+        errors.slackId = 'Slack IDs look like U0123ABCD.'
       if (values.identityId.length > 200) errors.identityId = 'That ID is too long.'
 
       if (Object.keys(errors).length > 0) {
@@ -92,7 +100,11 @@ export default createController(routes.requests, {
       } catch (error) {
         logError(`enqueue resolve ${request.id}`, error)
       }
-      setFlash(context.session, { type: 'success', header: 'Request created', content: 'The dry run starts in a moment.' })
+      setFlash(context.session, {
+        type: 'success',
+        header: 'Request created',
+        content: 'The dry run starts in a moment.',
+      })
       return redirect(routes.requests.show.href({ id: request.id }), 303)
     },
 
@@ -125,10 +137,18 @@ export default createController(routes.requests, {
       if (!UUID_PATTERN.test(id)) return notFound()
       try {
         await approveRequest(context.db, id, { type: 'staff', id: context.auth.identity.sub })
-        setFlash(context.session, { type: 'success', header: 'Approved', content: 'Execution has started.' })
+        setFlash(context.session, {
+          type: 'success',
+          header: 'Approved',
+          content: 'Execution has started.',
+        })
       } catch (error) {
         if (!(error instanceof RequestStateError)) throw error
-        setFlash(context.session, { type: 'error', header: 'Could not approve', content: error.message })
+        setFlash(context.session, {
+          type: 'error',
+          header: 'Could not approve',
+          content: error.message,
+        })
       }
       return redirect(routes.requests.show.href({ id }), 303)
     },
@@ -140,11 +160,22 @@ export default createController(routes.requests, {
       let request = await context.db.find(requests, id)
       if (!request) return notFound()
       try {
-        await rejectRequest(context.db, id, request.status, { type: 'staff', id: context.auth.identity.sub })
-        setFlash(context.session, { type: 'success', header: 'Rejected', content: 'Nothing will be executed.' })
+        await rejectRequest(context.db, id, request.status, {
+          type: 'staff',
+          id: context.auth.identity.sub,
+        })
+        setFlash(context.session, {
+          type: 'success',
+          header: 'Rejected',
+          content: 'Nothing will be executed.',
+        })
       } catch (error) {
         if (!(error instanceof RequestStateError)) throw error
-        setFlash(context.session, { type: 'error', header: 'Could not reject', content: error.message })
+        setFlash(context.session, {
+          type: 'error',
+          header: 'Could not reject',
+          content: error.message,
+        })
       }
       return redirect(routes.requests.show.href({ id }), 303)
     },
@@ -154,11 +185,18 @@ export default createController(routes.requests, {
       let id = context.params.id
       if (!UUID_PATTERN.test(id)) return notFound()
       try {
-        await startDryRun(context.db, id, 'awaiting_approval', { type: 'staff', id: context.auth.identity.sub })
+        await startDryRun(context.db, id, 'awaiting_approval', {
+          type: 'staff',
+          id: context.auth.identity.sub,
+        })
         setFlash(context.session, { type: 'info', header: 'Re-running failed dry runs' })
       } catch (error) {
         if (!(error instanceof RequestStateError)) throw error
-        setFlash(context.session, { type: 'error', header: 'Could not re-run', content: error.message })
+        setFlash(context.session, {
+          type: 'error',
+          header: 'Could not re-run',
+          content: error.message,
+        })
       }
       return redirect(routes.requests.show.href({ id }), 303)
     },

@@ -32,14 +32,17 @@ function readValues(form: FormData | undefined): TargetValues {
 
 function validate(values: TargetValues, checkSlug: boolean) {
   let errors: Partial<Record<keyof TargetValues, string>> = {}
-  if (values.name.length === 0 || values.name.length > 200) errors.name = 'Enter a name up to 200 characters.'
+  if (values.name.length === 0 || values.name.length > 200)
+    errors.name = 'Enter a name up to 200 characters.'
   if (checkSlug && (!SLUG_PATTERN.test(values.slug) || values.slug.length > 64)) {
     errors.slug = 'Use lowercase letters, digits, and single dashes.'
   }
-  if (values.audience.length === 0 || values.audience.length > 200) errors.audience = 'Enter the audience the program expects.'
+  if (values.audience.length === 0 || values.audience.length > 200)
+    errors.audience = 'Enter the audience the program expects.'
   let config = readEndpointConfig({ url: values.url })
   if (!config) errors.url = 'Enter an http or https URL.'
-  else if (env.NODE_ENV === 'production' && !config.url.startsWith('https:')) errors.url = 'Production targets must use https.'
+  else if (env.NODE_ENV === 'production' && !config.url.startsWith('https:'))
+    errors.url = 'Production targets must use https.'
   return { errors, config }
 }
 
@@ -81,10 +84,18 @@ export default createController(routes.targets, {
       if (!context.auth.ok) return notFound()
       let values = readValues(context.formData)
       let { errors, config } = validate(values, true)
-      if (!errors.slug && (await slugTaken(context.db, values.slug))) errors.slug = 'That slug is already registered.'
+      if (!errors.slug && (await slugTaken(context.db, values.slug)))
+        errors.slug = 'That slug is already registered.'
       if (Object.keys(errors).length > 0 || !config) {
         return context.render(
-          <TargetFormPage staff={context.auth.identity} csrfToken={getCsrfToken(context)} flashes={[]} target={null} values={values} errors={errors} />,
+          <TargetFormPage
+            staff={context.auth.identity}
+            csrfToken={getCsrfToken(context)}
+            flashes={[]}
+            target={null}
+            values={values}
+            errors={errors}
+          />,
           { status: 400 },
         )
       }
@@ -101,7 +112,13 @@ export default createController(routes.targets, {
         await recordAudit(tx, {
           actor,
           action: 'target.registered',
-          detail: { slug: values.slug, type: 'endpoint', audience: values.audience, url: config.url, enabled: values.enabled },
+          detail: {
+            slug: values.slug,
+            type: 'endpoint',
+            audience: values.audience,
+            url: config.url,
+            enabled: values.enabled,
+          },
         })
       })
       setFlash(context.session, { type: 'success', header: `Registered ${values.name}` })
@@ -125,7 +142,11 @@ export default createController(routes.targets, {
             config: { url },
             enabled: mode === 'ok' || mode === 'flaky',
           })
-          await recordAudit(tx, { actor, action: 'target.registered', detail: { slug, type: 'endpoint', url, fake: true } })
+          await recordAudit(tx, {
+            actor,
+            action: 'target.registered',
+            detail: { slug, type: 'endpoint', url, fake: true },
+          })
         })
         added++
       }
@@ -169,12 +190,29 @@ export default createController(routes.targets, {
       let { errors, config } = validate(values, false)
       if (Object.keys(errors).length > 0 || !config) {
         return context.render(
-          <TargetFormPage staff={context.auth.identity} csrfToken={getCsrfToken(context)} flashes={[]} target={target} values={values} errors={errors} />,
+          <TargetFormPage
+            staff={context.auth.identity}
+            csrfToken={getCsrfToken(context)}
+            flashes={[]}
+            target={target}
+            values={values}
+            errors={errors}
+          />,
           { status: 400 },
         )
       }
-      let before = { name: target.name, audience: target.audience, url: readEndpointConfig(target.config)?.url ?? null, enabled: target.enabled }
-      let after = { name: values.name, audience: values.audience, url: config.url, enabled: values.enabled }
+      let before = {
+        name: target.name,
+        audience: target.audience,
+        url: readEndpointConfig(target.config)?.url ?? null,
+        enabled: target.enabled,
+      }
+      let after = {
+        name: values.name,
+        audience: values.audience,
+        url: config.url,
+        enabled: values.enabled,
+      }
       let changed = Object.fromEntries(
         Object.entries(after)
           .filter(([key, value]) => before[key as keyof typeof before] !== value)

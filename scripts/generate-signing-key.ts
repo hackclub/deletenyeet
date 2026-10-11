@@ -7,4 +7,6 @@ if (process.argv.includes('--key')) {
 } else {
   process.stdout.write(`${JSON.stringify({ active: jwk.kid, keys: [jwk] })}\n`)
 }
-process.stderr.write(`generated ${jwk.kid}. this is a private key: store it as a secret, never commit it\n`)
+process.stderr.write(
+  `generated ${jwk.kid}. this is a private key: store it as a secret, never commit it\n`,
+)

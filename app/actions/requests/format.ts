@@ -12,13 +12,23 @@ export const REQUEST_STATUS: Record<RequestStatus, { type: StatusType; label: st
   rejected: { type: 'stopped', label: 'Rejected' },
 }
 
-export const ACTIVE_STATUSES: RequestStatus[] = ['received', 'resolving', 'dry_running', 'executing']
+export const ACTIVE_STATUSES: RequestStatus[] = [
+  'received',
+  'resolving',
+  'dry_running',
+  'executing',
+]
 
-export function resultStatus(status: TargetResultStatus, inFlight: boolean): { type: StatusType; label: string } {
+export function resultStatus(
+  status: TargetResultStatus,
+  inFlight: boolean,
+): { type: StatusType; label: string } {
   if (status === 'done') return { type: 'success', label: 'Done' }
   if (status === 'failed') return { type: 'error', label: 'Failed' }
   if (status === 'retrying') return { type: 'warning', label: 'Retrying' }
-  return inFlight ? { type: 'in-progress', label: 'Calling' } : { type: 'pending', label: 'Pending' }
+  return inFlight
+    ? { type: 'in-progress', label: 'Calling' }
+    : { type: 'pending', label: 'Pending' }
 }
 
 export function formatTime(value: unknown): string {

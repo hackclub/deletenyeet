@@ -9,7 +9,11 @@ export default createController(routes.dev, {
     components(context) {
       if (!context.auth.ok) return new Response('Unauthorized', { status: 401 })
       return context.render(
-        <ComponentsPage staff={context.auth.identity} csrfToken={getCsrfToken(context)} url={context.url} />,
+        <ComponentsPage
+          staff={context.auth.identity}
+          csrfToken={getCsrfToken(context)}
+          url={context.url}
+        />,
       )
     },
   },

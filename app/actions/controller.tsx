@@ -18,7 +18,10 @@ export default createController(routes, {
         return new Response('ok', { headers: { 'Cache-Control': 'no-store' } })
       } catch (error) {
         logError('health check', error)
-        return new Response('database unavailable', { status: 503, headers: { 'Cache-Control': 'no-store' } })
+        return new Response('database unavailable', {
+          status: 503,
+          headers: { 'Cache-Control': 'no-store' },
+        })
       }
     },
     jwks() {

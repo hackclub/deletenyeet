@@ -22,11 +22,8 @@ export function LoginPage(handle: Handle<{ csrfToken: string; error?: string; re
         <main class="centered-page">
           <Container
             header={
-              <Header
-                variant="h1"
-                description="staff only pls!"
-              >
-                epic data deletion 9000
+              <Header variant="h1" description="staff only pls!">
+                epic data yeeter 9000
               </Header>
             }
           >

@@ -1,27 +1,24 @@
 import { readFile, writeFile } from 'node:fs/promises'
 import { createRequire } from 'node:module'
 
-const require = createRequire(import.meta.url)
-const packageJsonPath = require.resolve('@cloudscape-design/design-tokens/package.json')
-const { version } = JSON.parse(await readFile(packageJsonPath, 'utf8')) as { version: string }
-const source = JSON.parse(
-  await readFile(new URL('index-visual-refresh.json', `file://${packageJsonPath}`), 'utf8'),
-) as TokenFile
-
-type ModeValue = { light: string; dark: string }
-type TokenValue =
+type Mode = 'light' | 'dark'
+type Value =
   | string
-  | ModeValue
+  | Record<Mode, string>
   | { comfortable: string; compact: string }
   | { default: string; disabled: string }
-type TokenFile = {
-  tokens: Record<string, { $value: TokenValue }>
-  contexts: Record<string, { tokens: Record<string, { $value: TokenValue }> }>
+type Tokens = Record<string, { $value: Value }>
+type Pair = [string, string]
+
+const pkg = createRequire(import.meta.url).resolve('@cloudscape-design/design-tokens/package.json')
+const read = async (url: string | URL) => JSON.parse(await readFile(url, 'utf8'))
+const { version } = (await read(pkg)) as { version: string }
+const source = (await read(new URL('index-visual-refresh.json', `file://${pkg}`))) as {
+  tokens: Tokens
+  contexts: Record<string, { tokens: Tokens }>
 }
 
-const OUTPUT = new URL('../app/ui/public/tokens.css', import.meta.url)
-
-const INCLUDED_PREFIXES = [
+const INCLUDED = [
   'color-background-',
   'color-border-',
   'color-text-',
@@ -38,20 +35,14 @@ const INCLUDED_PREFIXES = [
   'motion-duration-',
   'motion-easing-',
 ]
-
-const EXCLUDED_PREFIXES = ['color-background-avatar-gen-ai', 'color-background-loading-bar-gen-ai']
-
+const EXCLUDED = ['color-background-avatar-gen-ai', 'color-background-loading-bar-gen-ai']
 const CONTEXTS = ['top-navigation', 'flashbar', 'flashbar-warning', 'alert']
-
-const FONT_OVERRIDES: Record<string, string> = {
-  'font-family-base': "'Lexend', 'Helvetica Neue', Roboto, Arial, sans-serif",
-  'font-family-display': "'Lexend', 'Helvetica Neue', Roboto, Arial, sans-serif",
-  'font-family-heading': "'Lexend', 'Helvetica Neue', Roboto, Arial, sans-serif",
-}
+const FONT = "'Lexend', 'Helvetica Neue', Roboto, Arial, sans-serif"
+const FONTS = ['font-family-base', 'font-family-display', 'font-family-heading']
 
 // cloudscape dark surfaces are navy; amoled swaps the neutral surface ramp for true black and
 // neutral grays while keeping status, selection, and primary colors untouched
-const AMOLED_SURFACES: Record<string, string> = {
+const AMOLED: Record<string, string> = {
   '#0f141a': '#000000',
   '#161d26': '#000000',
   '#131920': '#0a0a0a',
@@ -61,86 +52,52 @@ const AMOLED_SURFACES: Record<string, string> = {
   'rgba(15, 20, 26, 0.7)': 'rgba(0, 0, 0, 0.7)',
 }
 
-function included(name: string) {
-  return (
-    INCLUDED_PREFIXES.some((prefix) => name.startsWith(prefix)) &&
-    !EXCLUDED_PREFIXES.some((prefix) => name.startsWith(prefix))
-  )
+function resolve(name: string, v: Value, mode: Mode, amoled: boolean): string {
+  if (FONTS.includes(name)) return FONT
+  let r =
+    typeof v === 'string' ? v : 'light' in v ? v[mode] : 'compact' in v ? v.compact : v.default
+  return amoled && name.startsWith('color-background-') ? (AMOLED[r] ?? r) : r
 }
 
-function isMode(value: TokenValue): value is ModeValue {
-  return typeof value === 'object' && 'light' in value
-}
+const block = (selector: string, decls: Pair[]) =>
+  decls.length ? `${selector} {\n${decls.map(([n, v]) => `  --${n}: ${v};`).join('\n')}\n}\n` : ''
+const darkBlock = (selector: string, decls: Pair[]) =>
+  `@media (prefers-color-scheme: dark) {\n${block(selector, decls).replace(/^/gm, '  ').trimEnd()}\n}\n`
+const base = (name: string, mode: Mode) =>
+  resolve(name, source.tokens[name]!.$value, mode, mode === 'dark')
 
-function resolve(
-  name: string,
-  value: TokenValue,
-  mode: 'light' | 'dark',
-  darkSurface: boolean,
-): string {
-  if (FONT_OVERRIDES[name]) return FONT_OVERRIDES[name]
-  let resolved =
-    typeof value === 'string'
-      ? value
-      : isMode(value)
-        ? value[mode]
-        : 'compact' in value
-          ? value.compact
-          : value.default
-  if (darkSurface && name.startsWith('color-background-'))
-    return AMOLED_SURFACES[resolved] ?? resolved
-  return resolved
-}
+let names = Object.keys(source.tokens)
+  .filter((n) => INCLUDED.some((p) => n.startsWith(p)) && !EXCLUDED.some((p) => n.startsWith(p)))
+  .sort()
+let light = names.map((n): Pair => [n, base(n, 'light')])
+let dark = names.map((n): Pair => [n, base(n, 'dark')]).filter(([n, v]) => v !== base(n, 'light'))
 
-function block(selector: string, declarations: [string, string][]) {
-  if (declarations.length === 0) return ''
-  return `${selector} {\n${declarations.map(([name, value]) => `  --${name}: ${value};`).join('\n')}\n}\n`
-}
-
-let names = Object.keys(source.tokens).filter(included).sort()
-
-let light = names.map(
-  (name) => [name, resolve(name, source.tokens[name]!.$value, 'light', false)] as [string, string],
-)
-let dark = names
-  .map(
-    (name) => [name, resolve(name, source.tokens[name]!.$value, 'dark', true)] as [string, string],
-  )
-  .filter(([name, value]) => value !== light.find(([other]) => other === name)![1])
-
-let contextBlocks = CONTEXTS.map((context) => {
-  let tokens = source.contexts[context]?.tokens ?? {}
-  let alwaysDark = context === 'top-navigation'
-  let diff = (mode: 'light' | 'dark') =>
+let contexts = CONTEXTS.map((c) => {
+  let tokens = source.contexts[c]?.tokens ?? {}
+  let diff = (mode: Mode) =>
     names
-      .filter((name) => tokens[name] !== undefined)
-      .map(
-        (name) =>
-          [name, resolve(name, tokens[name]!.$value, mode, mode === 'dark' || alwaysDark)] as [
-            string,
-            string,
-          ],
-      )
-      .filter(
-        ([name, value]) =>
-          value !== resolve(name, source.tokens[name]!.$value, mode, mode === 'dark'),
-      )
-  let selector = `[data-context='${context}']`
-  return [
-    block(selector, diff('light')),
-    `@media (prefers-color-scheme: dark) {\n${block(selector, diff('dark')).replace(/^/gm, '  ').trimEnd()}\n}\n`,
-  ].join('\n')
+      .filter((n) => tokens[n] !== undefined)
+      .map((n): Pair => [
+        n,
+        resolve(n, tokens[n]!.$value, mode, mode === 'dark' || c === 'top-navigation'),
+      ])
+      .filter(([n, v]) => v !== base(n, mode))
+  let selector = `[data-context='${c}']`
+  return [block(selector, diff('light')), darkBlock(selector, diff('dark'))].join('\n')
 })
 
 let css = [
   `/* generated by scripts/generate-tokens.ts from @cloudscape-design/design-tokens@${version} (visual refresh, compact density). do not edit */`,
   '',
   block(':root', light),
-  `@media (prefers-color-scheme: dark) {\n${block(':root', dark).replace(/^/gm, '  ').trimEnd()}\n}\n`,
-  ...contextBlocks,
+  darkBlock(':root', dark),
+  ...contexts,
 ].join('\n')
 
-await writeFile(OUTPUT, css.replace(/\n{3,}/g, '\n\n'))
+await writeFile(
+  new URL('../app/ui/public/tokens.css', import.meta.url),
+  css.replace(/\n{3,}/g, '\n\n'),
+)
 console.log(
   `wrote ${names.length} tokens (${dark.length} dark overrides) from design-tokens@${version}`,
 )

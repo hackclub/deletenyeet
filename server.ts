@@ -10,77 +10,57 @@ import { startJobs, stopJobs } from './app/jobs/workers.ts'
 import { logError } from './app/log.ts'
 import { router } from './app/router.ts'
 
-const hmrProxyPort = process.env.HMR_PROXY_PORT
-  ? Number.parseInt(process.env.HMR_PROXY_PORT, 10)
-  : null
 const isHmr = process.env.REMIX_NODE_HMR === '1'
+const dev = env.NODE_ENV === 'development'
 
-if (env.NODE_ENV === 'production' && !env.MIGRATE_ON_START) {
-  await assertDatabaseCurrent()
-} else {
-  await migrateDatabase()
-}
-
+await (!dev && !env.MIGRATE_ON_START ? assertDatabaseCurrent() : migrateDatabase())
 await hackClubAuth.discover()
 await startJobs()
 
-const fakeTarget =
-  env.NODE_ENV === 'development'
-    ? startFakeTarget({
-        port: env.FAKE_TARGET_PORT,
-        jwksUrl: new URL('/.well-known/jwks.json', env.APP_ORIGIN).href,
-      })
-    : null
+const fakeTarget = dev
+  ? startFakeTarget({
+      port: env.FAKE_TARGET_PORT,
+      jwksUrl: new URL('/.well-known/jwks.json', env.APP_ORIGIN).href,
+    })
+  : null
 
-const sessionPruner = setInterval(
-  () => {
-    pruneExpiredSessions(db).catch((error) => logError('session pruning', error))
-  },
+const pruner = setInterval(
+  () => pruneExpiredSessions(db).catch((e) => logError('session pruning', e)),
   60 * 60 * 1000,
-)
-sessionPruner.unref()
+).unref()
 
 // tls ends at the reverse proxy so pin request urls to the public origin
 // otherwise csrf and cop compare https origins against http urls
-const publicOrigin = env.NODE_ENV === 'production' ? new URL(env.APP_ORIGIN) : null
+const origin = dev ? null : new URL(env.APP_ORIGIN)
 
 const server = http.createServer(
   createRequestListener(router.fetch, {
     trustProxy: isHmr,
-    protocol: publicOrigin?.protocol,
-    host: publicOrigin?.host,
-    onError(error) {
-      logError('unhandled request error', error)
+    protocol: origin?.protocol,
+    host: origin?.host,
+    onError(e) {
+      logError('unhandled request error', e)
       return new Response('Internal Server Error', { status: 500 })
     },
   }),
 )
 
 server.listen(env.PORT, () => {
-  if (isHmr) {
-    import('remix/node-hmr/runtime').then((nodeHmr) => nodeHmr.emitServerReady())
-  }
-
-  console.log(`Server listening on http://localhost:${hmrProxyPort ?? env.PORT}`)
+  if (isHmr) import('remix/node-hmr/runtime').then((h) => h.emitServerReady())
+  console.log(`Server listening on http://localhost:${process.env.HMR_PROXY_PORT ?? env.PORT}`)
 })
 
-let shuttingDown = false
-
-function shutdown() {
-  if (shuttingDown) {
-    return
-  }
-
-  shuttingDown = true
-  clearInterval(sessionPruner)
-  fakeTarget?.close()
-  server.close(() => {
-    stopJobs()
-      .catch((error) => logError('stopping jobs', error))
-      .finally(() => db.close().finally(() => process.exit(0)))
+let stopping = false
+for (let signal of ['SIGINT', 'SIGTERM'])
+  process.on(signal, () => {
+    if (stopping) return
+    stopping = true
+    clearInterval(pruner)
+    fakeTarget?.close()
+    server.close(() =>
+      stopJobs()
+        .catch((e) => logError('stopping jobs', e))
+        .finally(() => db.close().finally(() => process.exit(0))),
+    )
+    server.closeAllConnections()
   })
-  server.closeAllConnections()
-}
-
-process.on('SIGINT', shutdown)
-process.on('SIGTERM', shutdown)

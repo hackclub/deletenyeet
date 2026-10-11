@@ -6,21 +6,16 @@ import { env } from './env.ts'
 
 export const db = createPostgresDatabase({ connectionString: env.DATABASE_URL, max: 10 })
 
-const migrationsDirectory = fileURLToPath(new URL('../db/migrations/', import.meta.url))
-
-export function loadAppMigrations() {
-  return loadMigrations(migrationsDirectory)
-}
+let migrations = () => loadMigrations(fileURLToPath(new URL('../db/migrations/', import.meta.url)))
 
 export async function migrateDatabase() {
-  await db.migrate(await loadAppMigrations())
+  await db.migrate(await migrations())
 }
 
 export async function assertDatabaseCurrent() {
-  let status = await db.migrationStatus(await loadAppMigrations())
-  let outstanding = status.filter((entry) => entry.status !== 'applied')
-  if (outstanding.length > 0) {
-    let list = outstanding.map((entry) => `${entry.id}_${entry.name} (${entry.status})`).join(', ')
-    throw new Error(`database schema is not current: ${list}. run \`npm run db -- migrate\``)
-  }
+  let pending = (await db.migrationStatus(await migrations())).filter((m) => m.status !== 'applied')
+  if (pending.length)
+    throw new Error(
+      `database schema is not current: ${pending.map((m) => `${m.id}_${m.name} (${m.status})`).join(', ')}. run \`npm run db -- migrate\``,
+    )
 }

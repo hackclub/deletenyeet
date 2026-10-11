@@ -3,6 +3,7 @@ import type { Handle } from 'remix/component'
 import type { Staff } from '../../auth/staff.ts'
 import { routes } from '../../routes.ts'
 import { Alert } from '../../ui/alert.tsx'
+import { APP } from '../../ui/app-layout.tsx'
 import { Badge } from '../../ui/badge.tsx'
 import { Button } from '../../ui/button.tsx'
 import { Container } from '../../ui/container.tsx'
@@ -14,99 +15,51 @@ import { CodeBlock, Prose } from '../../ui/prose.tsx'
 import { SpaceBetween } from '../../ui/space-between.tsx'
 import { StaffPage } from '../../ui/staff-page.tsx'
 import { StatusIndicator, type StatusType } from '../../ui/status-indicator.tsx'
-import { applyTableState, readTableState, Table, type TableColumn } from '../../ui/table.tsx'
+import {
+  applyTableState,
+  hrefWith,
+  readTableState,
+  Table,
+  type TableColumn,
+} from '../../ui/table.tsx'
 import { Tabs } from '../../ui/tabs.tsx'
 
-interface SampleRequest {
-  id: string
-  kind: 'deletion' | 'export'
-  status: StatusType
-  statusText: string
-  targets: number
-  receivedAt: Date
-}
+const SAMPLE_REQUESTS = (
+  [
+    ['req-0007', 'deletion', 'pending', 'Awaiting approval', 4, '2026-10-09T14:12:00Z'],
+    ['req-0006', 'export', 'in-progress', 'Executing', 3, '2026-10-08T09:40:00Z'],
+    ['req-0005', 'deletion', 'success', 'Completed', 5, '2026-10-05T18:02:00Z'],
+    ['req-0004', 'deletion', 'error', 'Failed on 1 target', 5, '2026-10-03T11:25:00Z'],
+    ['req-0003', 'export', 'stopped', 'Rejected', 2, '2026-09-30T08:15:00Z'],
+    ['req-0002', 'deletion', 'warning', 'Identifier unresolved', 0, '2026-09-28T21:47:00Z'],
+    ['req-0001', 'export', 'info', 'Dry run ready', 3, '2026-09-27T16:30:00Z'],
+  ] as const
+).map(([id, kind, status, statusText, targets, at]) => ({
+  id,
+  kind,
+  status,
+  statusText,
+  targets,
+  receivedAt: new Date(at),
+}))
 
-const SAMPLE_REQUESTS: SampleRequest[] = [
-  {
-    id: 'req-0007',
-    kind: 'deletion',
-    status: 'pending',
-    statusText: 'Awaiting approval',
-    targets: 4,
-    receivedAt: new Date('2026-10-09T14:12:00Z'),
-  },
-  {
-    id: 'req-0006',
-    kind: 'export',
-    status: 'in-progress',
-    statusText: 'Executing',
-    targets: 3,
-    receivedAt: new Date('2026-10-08T09:40:00Z'),
-  },
-  {
-    id: 'req-0005',
-    kind: 'deletion',
-    status: 'success',
-    statusText: 'Completed',
-    targets: 5,
-    receivedAt: new Date('2026-10-05T18:02:00Z'),
-  },
-  {
-    id: 'req-0004',
-    kind: 'deletion',
-    status: 'error',
-    statusText: 'Failed on 1 target',
-    targets: 5,
-    receivedAt: new Date('2026-10-03T11:25:00Z'),
-  },
-  {
-    id: 'req-0003',
-    kind: 'export',
-    status: 'stopped',
-    statusText: 'Rejected',
-    targets: 2,
-    receivedAt: new Date('2026-09-30T08:15:00Z'),
-  },
-  {
-    id: 'req-0002',
-    kind: 'deletion',
-    status: 'warning',
-    statusText: 'Identifier unresolved',
-    targets: 0,
-    receivedAt: new Date('2026-09-28T21:47:00Z'),
-  },
-  {
-    id: 'req-0001',
-    kind: 'export',
-    status: 'info',
-    statusText: 'Dry run ready',
-    targets: 3,
-    receivedAt: new Date('2026-09-27T16:30:00Z'),
-  },
-]
+type SampleRequest = (typeof SAMPLE_REQUESTS)[number]
 
 const COLUMNS: TableColumn<SampleRequest>[] = [
-  { id: 'id', header: 'Request', sortable: true, cell: (item) => <a href="#table">{item.id}</a> },
-  {
-    id: 'kind',
-    header: 'Type',
-    sortable: true,
-    cell: (item) => <Badge>{item.kind}</Badge>,
-  },
+  { id: 'id', header: 'Request', sortable: true, cell: (r) => <a href="#table">{r.id}</a> },
+  { id: 'kind', header: 'Type', sortable: true, cell: (r) => <Badge>{r.kind}</Badge> },
   {
     id: 'status',
     header: 'Status',
     sortable: true,
-    cell: (item) => <StatusIndicator type={item.status}>{item.statusText}</StatusIndicator>,
+    cell: (r) => <StatusIndicator type={r.status}>{r.statusText}</StatusIndicator>,
   },
-  { id: 'targets', header: 'Targets', sortable: true, cell: (item) => item.targets },
+  { id: 'targets', header: 'Targets', sortable: true, cell: (r) => r.targets },
   {
     id: 'receivedAt',
     header: 'Received',
     sortable: true,
-    cell: (item) => (
-      <time dateTime={item.receivedAt.toISOString()}>{formatDate(item.receivedAt)}</time>
-    ),
+    cell: (r) => <time dateTime={r.receivedAt.toISOString()}>{formatDate(r.receivedAt)}</time>,
   },
 ]
 
@@ -125,30 +78,22 @@ export function ComponentsPage(handle: Handle<{ staff: Staff; csrfToken: string;
   return () => {
     let { staff, csrfToken, url } = handle.props
     let pageHref = routes.dev.components.href()
-    let tableState = readTableState(url, {
-      sortable: COLUMNS.filter((column) => column.sortable).map((column) => column.id),
+    let state = readTableState(url, {
+      sortable: COLUMNS.map((c) => c.id),
       defaultSortBy: 'receivedAt',
       defaultDescending: true,
     })
-    let rows = applyTableState(SAMPLE_REQUESTS, tableState, {
-      filterText: (item) => `${item.id} ${item.kind} ${item.statusText}`,
-      sortValue: (item, columnId) =>
-        columnId === 'receivedAt'
-          ? item.receivedAt.getTime()
-          : columnId === 'targets'
-            ? item.targets
-            : columnId === 'status'
-              ? item.statusText
-              : columnId === 'kind'
-                ? item.kind
-                : item.id,
+    let rows = applyTableState(SAMPLE_REQUESTS, state, {
+      filterText: (r) => `${r.id} ${r.kind} ${r.statusText}`,
+      sortValue: (r, id) =>
+        id === 'receivedAt'
+          ? r.receivedAt.getTime()
+          : id === 'status'
+            ? r.statusText
+            : r[id as 'id' | 'kind' | 'targets'],
     })
-    let activeTab = url.searchParams.get('tab') === 'targets' ? 'targets' : 'details'
-    let tabHref = (tab: string) => {
-      let next = new URL(url)
-      next.searchParams.set('tab', tab)
-      return `${next.pathname}${next.search}#tabs`
-    }
+    let tab = url.searchParams.get('tab') === 'targets' ? 'targets' : 'details'
+    let tabHref = (t: string) => `${hrefWith(url, { tab: t })}#tabs`
 
     return (
       <StaffPage
@@ -157,7 +102,7 @@ export function ComponentsPage(handle: Handle<{ staff: Staff; csrfToken: string;
         csrfToken={csrfToken}
         activeHref={pageHref}
         breadcrumbs={[
-          { text: 'epic data yeeter 9000', href: routes.home.href() },
+          { text: APP, href: routes.home.href() },
           { text: 'Development', href: pageHref },
           { text: 'Components', href: pageHref },
         ]}
@@ -218,17 +163,18 @@ export function ComponentsPage(handle: Handle<{ staff: Staff; csrfToken: string;
           <Container header={<Header>Status indicators and badges</Header>}>
             <SpaceBetween size="m">
               <SpaceBetween size="l" direction="horizontal">
-                {STATUS_TYPES.map((type) => (
-                  <StatusIndicator key={type} type={type}>
-                    {type}
+                {STATUS_TYPES.map((t) => (
+                  <StatusIndicator key={t} type={t}>
+                    {t}
                   </StatusIndicator>
                 ))}
               </SpaceBetween>
               <SpaceBetween size="xs" direction="horizontal">
-                <Badge>grey</Badge>
-                <Badge color="blue">blue</Badge>
-                <Badge color="green">green</Badge>
-                <Badge color="red">red</Badge>
+                {(['grey', 'blue', 'green', 'red'] as const).map((c) => (
+                  <Badge key={c} color={c}>
+                    {c}
+                  </Badge>
+                ))}
               </SpaceBetween>
             </SpaceBetween>
           </Container>
@@ -308,8 +254,8 @@ export function ComponentsPage(handle: Handle<{ staff: Staff; csrfToken: string;
             <Table
               columns={COLUMNS}
               items={rows}
-              rowKey={(item: SampleRequest) => item.id}
-              state={tableState}
+              rowKey={(r: SampleRequest) => r.id}
+              state={state}
               url={url}
               totalCount={SAMPLE_REQUESTS.length}
               filterPlaceholder="Find requests"
@@ -329,13 +275,13 @@ export function ComponentsPage(handle: Handle<{ staff: Staff; csrfToken: string;
             <Container disableContentPaddings>
               <Tabs
                 label="Request sections"
-                activeId={activeTab}
+                activeId={tab}
                 tabs={[
                   { id: 'details', label: 'Details', href: tabHref('details') },
                   { id: 'targets', label: 'Targets', href: tabHref('targets') },
                 ]}
               >
-                {activeTab === 'details' ? (
+                {tab === 'details' ? (
                   <KeyValuePairs
                     columns={2}
                     items={[
@@ -393,6 +339,4 @@ export function ComponentsPage(handle: Handle<{ staff: Staff; csrfToken: string;
   }
 }
 
-function formatDate(date: Date) {
-  return date.toISOString().slice(0, 16).replace('T', ' ') + ' UTC'
-}
+const formatDate = (d: Date) => `${d.toISOString().slice(0, 16).replace('T', ' ')} UTC`

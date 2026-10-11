@@ -10,6 +10,7 @@ import {
   type TargetPhase,
   type TargetResultStatus,
 } from '../../data/tables.ts'
+import type { TargetResult } from '../../targets/types.ts'
 
 export interface ResultView {
   id: string
@@ -17,8 +18,8 @@ export interface ResultView {
   status: TargetResultStatus
   attempts: number
   found: boolean | null
-  deleted: Record<string, number> | null
-  retained: { type: string; count: number; reason: string }[] | null
+  deleted: TargetResult['deleted'] | null
+  retained: TargetResult['retained'] | null
   errorCode: string | null
   httpStatus: number | null
   nextAttemptAt: Date | null
@@ -37,41 +38,22 @@ export interface RequestDetail {
 export async function loadRequestDetail(db: Database, id: string): Promise<RequestDetail | null> {
   let request = await db.find(requests, id)
   if (!request) return null
-  let identifiers = await db.findMany(requestIdentifiers, {
-    where: { request_id: id },
-    orderBy: ['id', 'asc'],
-  })
-  let audit = await db.findMany(auditEvents, { where: { request_id: id }, orderBy: ['id', 'asc'] })
-  let result = await db.exec(sql`
-    select r.id::text as id, r.phase, r.status, r.attempts, r.found, r.deleted, r.retained,
-      r.error_code, r.http_status, r.next_attempt_at,
-      (r.claimed_until is not null and r.claimed_until > now()) as in_flight,
-      t.name as target_name, t.slug as target_slug
-    from target_results r join targets t on t.id = r.target_id
-    where r.request_id = ${id}
-    order by t.name, r.phase
-  `)
-  let results = (result.rows ?? []).map((row) => {
-    let r = row as Record<string, unknown>
-    return {
-      id: r.id as string,
-      phase: r.phase as TargetPhase,
-      status: r.status as TargetResultStatus,
-      attempts: r.attempts as number,
-      found: r.found as boolean | null,
-      deleted: r.deleted as ResultView['deleted'],
-      retained: r.retained as ResultView['retained'],
-      errorCode: r.error_code as string | null,
-      httpStatus: r.http_status as number | null,
-      nextAttemptAt: r.next_attempt_at as Date | null,
-      inFlight: r.in_flight as boolean,
-      targetName: r.target_name as string,
-      targetSlug: r.target_slug as string,
-    }
-  })
-  return { request, identifiers, results, audit }
+  let q = { where: { request_id: id }, orderBy: ['id', 'asc'] as ['id', 'asc'] }
+  let [identifiers, audit, { rows }] = await Promise.all([
+    db.findMany(requestIdentifiers, q),
+    db.findMany(auditEvents, q),
+    db.exec(sql`
+      select r.id::text as id, r.phase, r.status, r.attempts, r.found, r.deleted, r.retained,
+        r.error_code as "errorCode", r.http_status as "httpStatus", r.next_attempt_at as "nextAttemptAt",
+        (r.claimed_until is not null and r.claimed_until > now()) as "inFlight",
+        t.name as "targetName", t.slug as "targetSlug"
+      from target_results r join targets t on t.id = r.target_id
+      where r.request_id = ${id}
+      order by t.name, r.phase
+    `),
+  ])
+  return { request, identifiers, results: (rows ?? []) as unknown as ResultView[], audit }
 }
 
-export async function listRequests(db: Database): Promise<PrivacyRequest[]> {
-  return db.findMany(requests, { orderBy: ['created_at', 'desc'], limit: 500 })
-}
+export const listRequests = (db: Database) =>
+  db.findMany(requests, { orderBy: ['created_at', 'desc'], limit: 500 })

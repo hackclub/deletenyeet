@@ -5,17 +5,15 @@ import type { Session } from 'remix/session'
 import { db } from '../db.ts'
 import { env } from '../env.ts'
 import { routes } from '../routes.ts'
-import { createHackClubAuthProvider } from './hackclub-provider.ts'
+import { createHackClubAuthProvider, type HackClubProfile } from './hackclub-provider.ts'
 import { createPostgresSessionStorage } from './session-storage.ts'
 
-export interface Staff {
-  sub: string
-  name: string | null
-  slackId: string | null
-}
+export type Staff = HackClubProfile
 
-const STAFF_KEY = 'staff'
-const SESSION_TTL_SECONDS = 12 * 60 * 60
+const KEY = 'staff'
+const TTL = 12 * 60 * 60
+const secure = env.APP_ORIGIN.startsWith('https:')
+const allowlist = new Set(env.STAFF_SUBS)
 
 export const hackClubAuth = createHackClubAuthProvider({
   issuer: env.HCA_ISSUER,
@@ -25,42 +23,32 @@ export const hackClubAuth = createHackClubAuthProvider({
   pkce: env.HCA_PKCE,
 })
 
-const secureOrigin = env.APP_ORIGIN.startsWith('https:')
-
-export const sessionCookie = createCookie(secureOrigin ? '__Host-session' : 'session', {
+export const sessionCookie = createCookie(secure ? '__Host-session' : 'session', {
   secrets: [env.SESSION_SECRET],
   httpOnly: true,
-  secure: secureOrigin,
+  secure,
   sameSite: 'lax',
   path: '/',
-  maxAge: SESSION_TTL_SECONDS,
+  maxAge: TTL,
 })
 
 export const sessionStorage = createPostgresSessionStorage(db, {
-  ttlSeconds: SESSION_TTL_SECONDS,
-  staffSub: (session) => readStaff(session)?.sub ?? null,
+  ttlSeconds: TTL,
+  staffSub: (s) => readStaff(s)?.sub ?? null,
 })
 
-const allowlist = new Set(env.STAFF_SUBS)
+export const isAllowlisted = (sub: string) => allowlist.has(sub)
 
-export function isAllowlisted(sub: string): boolean {
-  return allowlist.has(sub)
-}
+export const writeStaff = (s: Session, staff: Staff) => s.set(KEY, staff)
 
-export function writeStaff(session: Session, staff: Staff) {
-  session.set(STAFF_KEY, staff)
-}
-
-export function readStaff(session: Session): Staff | null {
-  let value = session.get(STAFF_KEY) as Staff | undefined
-  return value && typeof value.sub === 'string' ? value : null
+function readStaff(s: Session): Staff | null {
+  let v = s.get(KEY) as Staff | undefined
+  return v && typeof v.sub === 'string' ? v : null
 }
 
 export const staffSessionScheme = createSessionAuthScheme<Staff, Staff>({
   name: 'session',
   read: readStaff,
-  verify: (staff) => (isAllowlisted(staff.sub) ? staff : null),
-  invalidate(session) {
-    session.unset(STAFF_KEY)
-  },
+  verify: (s) => (isAllowlisted(s.sub) ? s : null),
+  invalidate: (s) => s.unset(KEY),
 })

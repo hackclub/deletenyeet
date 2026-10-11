@@ -2,11 +2,12 @@ import { SafeError } from '../log.ts'
 import type { TokenAction, TokenSubject } from '../signing/tokens.ts'
 
 export type Subject = TokenSubject
+type Retained = { type: string; count: number; reason: string }
 
 export interface TargetResult {
   found: boolean
   deleted: Record<string, number>
-  retained: { type: string; count: number; reason: string }[]
+  retained: Retained[]
 }
 
 export interface CallContext {
@@ -21,43 +22,38 @@ export interface Target {
 }
 
 export class TargetCallError extends SafeError {
+  override name = 'TargetCallError'
   constructor(
     public readonly code: string,
     public readonly retryable: boolean,
     public readonly httpStatus: number | null = null,
   ) {
     super(`target call failed: ${code}`)
-    this.name = 'TargetCallError'
   }
 }
 
+let isCount = (v: unknown): v is number =>
+  typeof v === 'number' && Number.isSafeInteger(v) && v >= 0
+let isLabel = (v: unknown): v is string => typeof v === 'string' && v.length > 0 && v.length <= 100
+
+// rebuilds the body field by field so nothing the program adds reaches the database
 export function parseTargetResult(value: unknown): TargetResult | null {
-  if (typeof value !== 'object' || value === null) return null
-  let body = value as Record<string, unknown>
-  if (typeof body.found !== 'boolean') return null
-  if (typeof body.deleted !== 'object' || body.deleted === null || Array.isArray(body.deleted))
-    return null
-  let deleted: Record<string, number> = {}
-  for (let [key, count] of Object.entries(body.deleted)) {
-    if (!isCount(count) || !isLabel(key)) return null
-    deleted[key] = count
-  }
-  if (!Array.isArray(body.retained)) return null
-  let retained: TargetResult['retained'] = []
-  for (let item of body.retained) {
-    if (typeof item !== 'object' || item === null) return null
-    let { type, count, reason } = item as Record<string, unknown>
-    if (!isLabel(type) || !isCount(count) || typeof reason !== 'string' || reason.length > 500)
-      return null
-    retained.push({ type, count, reason })
-  }
-  return { found: body.found, deleted, retained }
-}
-
-function isCount(value: unknown): value is number {
-  return typeof value === 'number' && Number.isSafeInteger(value) && value >= 0
-}
-
-function isLabel(value: unknown): value is string {
-  return typeof value === 'string' && value.length > 0 && value.length <= 100
+  let { found, deleted, retained } = (value ?? {}) as Record<string, unknown>
+  if (typeof found !== 'boolean' || typeof deleted !== 'object' || !deleted) return null
+  if (Array.isArray(deleted) || !Array.isArray(retained)) return null
+  let d = Object.entries(deleted)
+  let r = retained.map((i) => {
+    let { type, count, reason } = (i ?? {}) as Record<string, unknown>
+    return { type, count, reason }
+  })
+  return d.every((e): e is [string, number] => isLabel(e[0]) && isCount(e[1])) &&
+    r.every(
+      (i): i is Retained =>
+        isLabel(i.type) &&
+        isCount(i.count) &&
+        typeof i.reason === 'string' &&
+        i.reason.length <= 500,
+    )
+    ? { found, deleted: Object.fromEntries(d), retained: r }
+    : null
 }

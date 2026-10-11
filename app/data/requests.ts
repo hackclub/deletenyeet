@@ -10,7 +10,7 @@ import {
   type RequestType,
 } from './tables.ts'
 
-export const REQUEST_TRANSITIONS: Record<RequestStatus, readonly RequestStatus[]> = {
+const TRANSITIONS: Record<RequestStatus, readonly RequestStatus[]> = {
   received: ['resolving', 'rejected'],
   resolving: ['dry_running', 'rejected'],
   dry_running: ['awaiting_approval', 'rejected'],
@@ -22,131 +22,131 @@ export const REQUEST_TRANSITIONS: Record<RequestStatus, readonly RequestStatus[]
 }
 
 export class RequestStateError extends SafeError {
-  constructor(message: string) {
-    super(message)
-    this.name = 'RequestStateError'
-  }
+  override name = 'RequestStateError'
 }
 
-export function normalizeEmail(email: string): string {
-  return email.trim().toLowerCase()
+export const normalizeEmail = (email: string) => email.trim().toLowerCase()
+
+function check(from: RequestStatus, to: RequestStatus) {
+  if (!TRANSITIONS[from].includes(to))
+    throw new RequestStateError(`request cannot move from ${from} to ${to}`)
 }
 
-export interface NewRequest {
-  type: RequestType
-  email: string
-  slackId?: string | null
-  identityId?: string | null
-  actor: AuditActor
-  source: { kind: 'manual'; createdBy: string } | { kind: 'airtable'; recordId: string }
+// compare-and-set on the request row so concurrent moves lose cleanly
+async function update(
+  db: Database,
+  where: { id: string; status: RequestStatus; decision?: null },
+  changes: Partial<PrivacyRequest>,
+  stale: string,
+) {
+  if ((await db.updateMany(requests, changes, { where })).affectedRows !== 1)
+    throw new RequestStateError(stale)
 }
 
-export async function createRequest(db: Database, input: NewRequest): Promise<PrivacyRequest> {
+export async function createRequest(
+  db: Database,
+  input: {
+    type: RequestType
+    email: string
+    slackId?: string | null
+    identityId?: string | null
+    actor: AuditActor
+    source: { kind: 'manual'; createdBy: string } | { kind: 'airtable'; recordId: string }
+  },
+) {
+  let { type, source } = input
   return db.transaction(async (tx) => {
     let request = await tx.create(
       requests,
       {
-        type: input.type,
-        source: input.source.kind,
-        source_ref: input.source.kind === 'airtable' ? input.source.recordId : null,
-        created_by: input.source.kind === 'manual' ? input.source.createdBy : null,
+        type,
+        source: source.kind,
+        source_ref: source.kind === 'airtable' ? source.recordId : null,
+        created_by: source.kind === 'manual' ? source.createdBy : null,
       },
       { returnRow: true },
     )
-    await tx.create(requestIdentifiers, {
-      request_id: request.id,
-      kind: 'email',
-      value: normalizeEmail(input.email),
-      source: 'intake',
-    })
-    let extra = [
-      input.slackId ? { kind: 'slack_id' as const, value: input.slackId } : null,
-      input.identityId ? { kind: 'identity_id' as const, value: input.identityId } : null,
-    ].filter((entry) => entry !== null)
-    for (let entry of extra) {
-      await tx.create(requestIdentifiers, { request_id: request.id, ...entry, source: 'intake' })
-    }
+    let ids = [
+      ['email', normalizeEmail(input.email)],
+      ['slack_id', input.slackId],
+      ['identity_id', input.identityId],
+    ] as const
+    for (let [kind, value] of ids)
+      if (value)
+        await tx.create(requestIdentifiers, {
+          request_id: request.id,
+          kind,
+          value,
+          source: 'intake',
+        })
     await recordAudit(tx, {
       actor: input.actor,
       action: 'request.created',
       requestId: request.id,
-      detail: { type: input.type, source: input.source.kind },
+      detail: { type, source: source.kind },
     })
     return request
   })
 }
 
-export interface Transition {
-  requestId: string
-  from: RequestStatus
-  to: RequestStatus
-  actor: AuditActor
-  detail?: Record<string, unknown>
-}
-
-export async function transitionRequest(db: Database, transition: Transition): Promise<void> {
-  let { requestId, from, to, actor } = transition
-  if (!REQUEST_TRANSITIONS[from].includes(to)) {
-    throw new RequestStateError(`request cannot move from ${from} to ${to}`)
-  }
-
+export async function transitionRequest(
+  db: Database,
+  t: {
+    requestId: string
+    from: RequestStatus
+    to: RequestStatus
+    actor: AuditActor
+    detail?: Record<string, unknown>
+  },
+) {
+  let { requestId, from, to } = t
+  check(from, to)
   await db.transaction(async (tx) => {
-    let result = await tx.updateMany(
-      requests,
+    await update(
+      tx,
+      { id: requestId, status: from },
       {
         status: to,
         ...(to === 'completed' || to === 'partially_failed' ? { completed_at: new Date() } : {}),
       },
-      { where: { id: requestId, status: from } },
+      `request is no longer ${from}`,
     )
-    if (result.affectedRows !== 1) {
-      throw new RequestStateError(`request is no longer ${from}`)
-    }
     await recordAudit(tx, {
-      actor,
+      actor: t.actor,
       action: 'request.status_changed',
       requestId,
-      detail: { from, to, ...transition.detail },
+      detail: { from, to, ...t.detail },
     })
   })
 }
 
-export interface Decision {
-  requestId: string
-  decision: 'approved' | 'rejected'
-  actor: Extract<AuditActor, { type: 'staff' | 'slack' }>
-  from: RequestStatus
-}
-
-export async function decideRequest(db: Database, input: Decision): Promise<void> {
-  let to: RequestStatus = input.decision === 'approved' ? 'executing' : 'rejected'
-  if (input.decision === 'approved' && input.from !== 'awaiting_approval') {
+export async function decideRequest(
+  db: Database,
+  d: {
+    requestId: string
+    decision: 'approved' | 'rejected'
+    actor: Extract<AuditActor, { type: 'staff' | 'slack' }>
+    from: RequestStatus
+  },
+) {
+  let { requestId, decision, actor, from } = d
+  let to: RequestStatus = decision === 'approved' ? 'executing' : 'rejected'
+  if (decision === 'approved' && from !== 'awaiting_approval')
     throw new RequestStateError('only requests awaiting approval can be approved')
-  }
-  if (!REQUEST_TRANSITIONS[input.from].includes(to)) {
-    throw new RequestStateError(`request cannot move from ${input.from} to ${to}`)
-  }
-
+  check(from, to)
   await db.transaction(async (tx) => {
-    let result = await tx.updateMany(
-      requests,
+    await update(
+      tx,
+      { id: requestId, status: from, decision: null },
       {
         status: to,
-        decision: input.decision,
-        decided_by_type: input.actor.type,
-        decided_by: input.actor.id,
+        decision,
+        decided_by_type: actor.type,
+        decided_by: actor.id,
         decided_at: new Date(),
       },
-      { where: { id: input.requestId, status: input.from, decision: null } },
+      `request is no longer ${from} or was already decided`,
     )
-    if (result.affectedRows !== 1) {
-      throw new RequestStateError(`request is no longer ${input.from} or was already decided`)
-    }
-    await recordAudit(tx, {
-      actor: input.actor,
-      action: `request.${input.decision}`,
-      requestId: input.requestId,
-      detail: { from: input.from, to },
-    })
+    await recordAudit(tx, { actor, action: `request.${decision}`, requestId, detail: { from, to } })
   })
 }

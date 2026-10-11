@@ -1,8 +1,29 @@
 import type { Handle, RemixNode } from 'remix/component'
 
 import { Icon } from './icon.tsx'
+import { slot } from './slot.tsx'
 
 export type AlertType = 'info' | 'success' | 'warning' | 'error'
+
+export const role = (t: AlertType) => (t === 'error' ? 'alert' : 'status')
+
+// Icon, body, and action shared by Alert and Flashbar, with c as the class prefix
+export const notice = (
+  c: string,
+  type: AlertType,
+  header?: RemixNode,
+  content?: RemixNode,
+  action?: RemixNode,
+) => (
+  <>
+    <Icon name={`status-${type}`} label={type} />
+    <div class={`${c}__body`}>
+      {slot(`${c}__header`, header)}
+      {content ? <div>{content}</div> : null}
+    </div>
+    {slot(`${c}__action`, action)}
+  </>
+)
 
 export function Alert(
   handle: Handle<{
@@ -15,17 +36,8 @@ export function Alert(
   return () => {
     let { type = 'info', header, action, children } = handle.props
     return (
-      <div
-        class={`alert alert--${type}`}
-        role={type === 'error' ? 'alert' : 'status'}
-        data-context="alert"
-      >
-        <Icon name={`status-${type}`} label={type} />
-        <div class="alert__body">
-          {header ? <div class="alert__header">{header}</div> : null}
-          {children ? <div>{children}</div> : null}
-        </div>
-        {action ? <div class="alert__action">{action}</div> : null}
+      <div class={`alert alert--${type}`} role={role(type)} data-context="alert">
+        {notice('alert', type, header, children, action)}
       </div>
     )
   }

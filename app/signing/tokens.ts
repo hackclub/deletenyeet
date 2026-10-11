@@ -5,9 +5,9 @@ import { errors, jwtVerify, SignJWT, type JWTPayload, type JWTVerifyGetKey } fro
 import { SafeError } from '../log.ts'
 import { SIGNING_ALG, type Keyring } from './keyring.ts'
 
-export const TOKEN_ISSUER = 'hackclub-privacy'
-export const TOKEN_TTL_SECONDS = 300
-export const TOKEN_TYPE = 'JWT'
+const ISSUER = 'hackclub-privacy'
+const TTL = 300
+const TYP = 'JWT'
 
 export type TokenAction = 'delete' | 'export'
 
@@ -17,8 +17,8 @@ export interface TokenSubject {
   identity_id: string | null
 }
 
-export interface TargetTokenClaims extends JWTPayload {
-  iss: typeof TOKEN_ISSUER
+interface Claims extends JWTPayload {
+  iss: typeof ISSUER
   aud: string
   iat: number
   exp: number
@@ -29,135 +29,110 @@ export interface TargetTokenClaims extends JWTPayload {
   subject: TokenSubject
 }
 
-export interface MintInput {
-  requestId: string
-  targetSlug: string
-  audience: string
-  action: TokenAction
-  dryRun: boolean
-  attempt: number
-  subject: TokenSubject
-  now?: Date
-}
-
 export class TokenError extends SafeError {
+  override name = 'TokenError'
   constructor(
-    public readonly code: string,
+    readonly code: string,
     message: string,
   ) {
     super(message)
-    this.name = 'TokenError'
   }
 }
 
-export function tokenId(
-  input: Pick<MintInput, 'requestId' | 'targetSlug' | 'action' | 'attempt'>,
-): string {
-  // the random tail keeps ids unique even when an attempt number repeats, since programs reject a reused jti
-  let nonce = randomBytes(6).toString('hex')
-  return `${input.requestId}-${input.targetSlug}-${input.action}-${input.attempt}-${nonce}`
-}
-
-export async function mintTargetToken(keyring: Keyring, input: MintInput): Promise<string> {
-  if (!Number.isSafeInteger(input.attempt) || input.attempt < 1) {
+export async function mintTargetToken(
+  keyring: Keyring,
+  i: {
+    requestId: string
+    targetSlug: string
+    audience: string
+    action: TokenAction
+    dryRun: boolean
+    attempt: number
+    subject: TokenSubject
+  },
+): Promise<string> {
+  if (!Number.isSafeInteger(i.attempt) || i.attempt < 1)
     throw new TokenError('invalid_attempt', 'attempt must be a positive integer')
-  }
-  if (input.audience.length === 0) throw new TokenError('invalid_audience', 'audience is required')
-  if (!isSubject(input.subject) || !hasIdentifier(input.subject)) {
+  if (!i.audience) throw new TokenError('invalid_audience', 'audience is required')
+  let s = i.subject
+  if (!isSubject(s) || (!s.emails.length && s.slack_id === null && s.identity_id === null))
     throw new TokenError('invalid_subject', 'subject needs at least one identifier')
-  }
 
-  let iat = Math.floor((input.now ?? new Date()).getTime() / 1000)
-  return new SignJWT({
-    request_id: input.requestId,
-    action: input.action,
-    dry_run: input.dryRun,
-    subject: input.subject,
-  })
-    .setProtectedHeader({ alg: SIGNING_ALG, kid: keyring.activeKid, typ: TOKEN_TYPE })
-    .setIssuer(TOKEN_ISSUER)
-    .setAudience(input.audience)
+  let iat = Math.floor(Date.now() / 1000)
+  // the random tail keeps ids unique even when an attempt number repeats, since programs reject a reused jti
+  let jti = `${i.requestId}-${i.targetSlug}-${i.action}-${i.attempt}-${randomBytes(6).toString('hex')}`
+  return new SignJWT({ request_id: i.requestId, action: i.action, dry_run: i.dryRun, subject: s })
+    .setProtectedHeader({ alg: SIGNING_ALG, kid: keyring.activeKid, typ: TYP })
+    .setIssuer(ISSUER)
+    .setAudience(i.audience)
     .setIssuedAt(iat)
-    .setExpirationTime(iat + TOKEN_TTL_SECONDS)
-    .setJti(tokenId(input))
+    .setExpirationTime(iat + TTL)
+    .setJti(jti)
     .sign(keyring.signingKey)
-}
-
-export interface VerifyOptions {
-  audience: string
-  clockToleranceSeconds?: number
-  currentDate?: Date
 }
 
 export async function verifyTargetToken(
   token: string,
   keys: JWTVerifyGetKey,
-  options: VerifyOptions,
-): Promise<TargetTokenClaims> {
-  let tolerance = options.clockToleranceSeconds ?? 30
-  let payload: JWTPayload
-  try {
-    ;({ payload } = await jwtVerify(token, keys, {
-      issuer: TOKEN_ISSUER,
-      audience: options.audience,
-      algorithms: [SIGNING_ALG],
-      typ: TOKEN_TYPE,
-      requiredClaims: ['iat', 'exp', 'jti'],
-      maxTokenAge: TOKEN_TTL_SECONDS + tolerance,
-      clockTolerance: tolerance,
-      currentDate: options.currentDate,
-    }))
-  } catch (error) {
-    throw new TokenError(verifyErrorCode(error), 'token rejected')
-  }
+  o: { audience: string; clockToleranceSeconds?: number; currentDate?: Date },
+): Promise<Claims> {
+  let tolerance = o.clockToleranceSeconds ?? 30
+  let p = await jwtVerify(token, keys, {
+    issuer: ISSUER,
+    audience: o.audience,
+    algorithms: [SIGNING_ALG],
+    typ: TYP,
+    requiredClaims: ['iat', 'exp', 'jti'],
+    maxTokenAge: TTL + tolerance,
+    clockTolerance: tolerance,
+    currentDate: o.currentDate,
+  }).then(
+    (r) => r.payload,
+    (e) => {
+      throw new TokenError(verifyErrorCode(e), 'token rejected')
+    },
+  )
 
-  if (typeof payload.aud !== 'string')
-    throw new TokenError('invalid_audience', 'aud must be a single string')
-  if (
-    typeof payload.iat !== 'number' ||
-    typeof payload.exp !== 'number' ||
-    payload.exp - payload.iat > TOKEN_TTL_SECONDS
-  ) {
-    throw new TokenError('invalid_lifetime', `token lifetime must be at most ${TOKEN_TTL_SECONDS}s`)
+  let check = (ok: boolean, code: string, message: string) => {
+    if (!ok) throw new TokenError(code, message)
   }
-  if (typeof payload.jti !== 'string' || payload.jti.length === 0)
-    throw new TokenError('invalid_jti', 'jti is required')
-  if (typeof payload.request_id !== 'string' || payload.request_id.length === 0) {
-    throw new TokenError('invalid_request_id', 'request_id is required')
-  }
-  if (payload.action !== 'delete' && payload.action !== 'export') {
-    throw new TokenError('invalid_action', 'action must be delete or export')
-  }
-  if (typeof payload.dry_run !== 'boolean')
-    throw new TokenError('invalid_dry_run', 'dry_run must be a boolean')
-  if (!isSubject(payload.subject)) throw new TokenError('invalid_subject', 'subject is malformed')
-
-  return payload as TargetTokenClaims
+  check(typeof p.aud === 'string', 'invalid_audience', 'aud must be a single string')
+  check(
+    typeof p.iat === 'number' && typeof p.exp === 'number' && p.exp - p.iat <= TTL,
+    'invalid_lifetime',
+    `token lifetime must be at most ${TTL}s`,
+  )
+  check(isFilled(p.jti), 'invalid_jti', 'jti is required')
+  check(isFilled(p.request_id), 'invalid_request_id', 'request_id is required')
+  check(
+    p.action === 'delete' || p.action === 'export',
+    'invalid_action',
+    'action must be delete or export',
+  )
+  check(typeof p.dry_run === 'boolean', 'invalid_dry_run', 'dry_run must be a boolean')
+  check(isSubject(p.subject), 'invalid_subject', 'subject is malformed')
+  return p as Claims
 }
 
-function verifyErrorCode(error: unknown): string {
-  if (error instanceof errors.JWTExpired) return 'expired'
-  if (error instanceof errors.JWTClaimValidationFailed) return `invalid_${error.claim}`
-  if (error instanceof errors.JWSSignatureVerificationFailed) return 'bad_signature'
-  if (error instanceof errors.JWKSNoMatchingKey) return 'unknown_kid'
-  if (error instanceof errors.JOSEAlgNotAllowed) return 'alg_not_allowed'
-  if (error instanceof errors.JWSInvalid || error instanceof errors.JWTInvalid) return 'malformed'
+function verifyErrorCode(e: unknown): string {
+  if (e instanceof errors.JWTExpired) return 'expired'
+  if (e instanceof errors.JWTClaimValidationFailed) return `invalid_${e.claim}`
+  if (e instanceof errors.JWSSignatureVerificationFailed) return 'bad_signature'
+  if (e instanceof errors.JWKSNoMatchingKey) return 'unknown_kid'
+  if (e instanceof errors.JOSEAlgNotAllowed) return 'alg_not_allowed'
+  if (e instanceof errors.JWSInvalid || e instanceof errors.JWTInvalid) return 'malformed'
   return 'unverifiable'
 }
 
-function isSubject(value: unknown): value is TokenSubject {
-  if (typeof value !== 'object' || value === null) return false
-  let subject = value as Record<string, unknown>
-  return (
-    Array.isArray(subject.emails) &&
-    subject.emails.every((email) => typeof email === 'string' && email.length > 0) &&
-    (subject.slack_id === null ||
-      (typeof subject.slack_id === 'string' && subject.slack_id.length > 0)) &&
-    (subject.identity_id === null ||
-      (typeof subject.identity_id === 'string' && subject.identity_id.length > 0))
-  )
-}
+const isFilled = (v: unknown) => typeof v === 'string' && v.length > 0
 
-function hasIdentifier(subject: TokenSubject): boolean {
-  return subject.emails.length > 0 || subject.slack_id !== null || subject.identity_id !== null
+function isSubject(v: unknown): v is TokenSubject {
+  if (typeof v !== 'object' || v === null) return false
+  let s = v as Record<string, unknown>
+  return (
+    Array.isArray(s.emails) &&
+    s.emails.every(isFilled) &&
+    (s.slack_id === null || isFilled(s.slack_id)) &&
+    (s.identity_id === null || isFilled(s.identity_id))
+  )
 }

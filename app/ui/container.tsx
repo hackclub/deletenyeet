@@ -1,22 +1,24 @@
 import type { Handle, RemixNode } from 'remix/component'
 
-export interface ContainerProps {
-  header?: RemixNode
-  footer?: RemixNode
-  disableContentPaddings?: boolean
-  children?: RemixNode
-}
+import { slot } from './slot.tsx'
 
-export function Container(handle: Handle<ContainerProps>) {
+export function Container(
+  handle: Handle<{
+    header?: RemixNode
+    footer?: RemixNode
+    disableContentPaddings?: boolean
+    children?: RemixNode
+  }>,
+) {
   return () => {
     let { header, footer, disableContentPaddings, children } = handle.props
     return (
       <section class="container">
-        {header ? <div class="container__header">{header}</div> : null}
+        {slot('container__header', header)}
         <div class={disableContentPaddings ? 'container__content--flush' : 'container__content'}>
           {children}
         </div>
-        {footer ? <div class="container__footer">{footer}</div> : null}
+        {slot('container__footer', footer)}
       </section>
     )
   }

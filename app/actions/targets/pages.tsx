@@ -1,6 +1,5 @@
 import type { Handle } from 'remix/component'
 
-import type { Staff } from '../../auth/staff.ts'
 import type { Target } from '../../data/tables.ts'
 import { routes } from '../../routes.ts'
 import { readEndpointConfig } from '../../targets/endpoint.ts'
@@ -8,79 +7,62 @@ import { Alert } from '../../ui/alert.tsx'
 import { Badge } from '../../ui/badge.tsx'
 import { Button } from '../../ui/button.tsx'
 import { Container } from '../../ui/container.tsx'
-import type { FlashItem } from '../../ui/flashbar.tsx'
-import { Checkbox, FormField, Input } from '../../ui/form-field.tsx'
+import { Checkbox } from '../../ui/form-field.tsx'
 import { Header } from '../../ui/header.tsx'
 import { SpaceBetween } from '../../ui/space-between.tsx'
-import { StaffPage } from '../../ui/staff-page.tsx'
 import { StatusIndicator } from '../../ui/status-indicator.tsx'
 import { applyTableState, readTableState, Table, type TableColumn } from '../../ui/table.tsx'
+import { Actions, Field, Page, Post, type Errors, type PageBase } from '../shared.tsx'
 
-interface PageBase {
-  staff: Staff
-  csrfToken: string
-  flashes: FlashItem[]
+export interface TargetValues {
+  name: string
+  slug: string
+  audience: string
+  url: string
+  enabled: boolean
 }
+
+let section = (): [string, string] => ['Targets', routes.targets.index.href()]
+let mono = (s: string | null) => <span class="mono">{s ?? '-'}</span>
 
 const COLUMNS: TableColumn<Target>[] = [
   {
     id: 'name',
     header: 'Name',
     sortable: true,
-    cell: (item) => <a href={routes.targets.edit.href({ id: item.id })}>{item.name}</a>,
+    cell: (t) => <a href={routes.targets.edit.href({ id: t.id })}>{t.name}</a>,
   },
-  {
-    id: 'slug',
-    header: 'Slug',
-    sortable: true,
-    cell: (item) => <span class="mono">{item.slug}</span>,
-  },
-  { id: 'type', header: 'Type', sortable: true, cell: (item) => <Badge>{item.type}</Badge> },
-  {
-    id: 'audience',
-    header: 'Audience',
-    sortable: true,
-    cell: (item) => <span class="mono">{item.audience ?? '-'}</span>,
-  },
-  {
-    id: 'url',
-    header: 'Endpoint',
-    cell: (item) => <span class="mono">{readEndpointConfig(item.config)?.url ?? '-'}</span>,
-  },
+  { id: 'slug', header: 'Slug', sortable: true, cell: (t) => mono(t.slug) },
+  { id: 'type', header: 'Type', sortable: true, cell: (t) => <Badge>{t.type}</Badge> },
+  { id: 'audience', header: 'Audience', sortable: true, cell: (t) => mono(t.audience) },
+  { id: 'url', header: 'Endpoint', cell: (t) => mono(readEndpointConfig(t.config)?.url ?? null) },
   {
     id: 'enabled',
     header: 'State',
     sortable: true,
-    cell: (item) =>
-      item.enabled ? (
-        <StatusIndicator type="success">Enabled</StatusIndicator>
-      ) : (
-        <StatusIndicator type="stopped">Disabled</StatusIndicator>
-      ),
+    cell: (t) => (
+      <StatusIndicator type={t.enabled ? 'success' : 'stopped'}>
+        {t.enabled ? 'Enabled' : 'Disabled'}
+      </StatusIndicator>
+    ),
   },
 ]
 
 export function TargetsIndexPage(
-  handle: Handle<PageBase & { targets: Target[]; url: URL; development: boolean }>,
+  handle: Handle<{ base: PageBase; targets: Target[]; url: URL; development: boolean }>,
 ) {
   return () => {
-    let { staff, csrfToken, flashes, targets, url, development } = handle.props
+    let { base, targets, url, development } = handle.props
     let state = readTableState(url, {
       sortable: ['name', 'slug', 'type', 'audience', 'enabled'],
       defaultSortBy: 'name',
     })
     let items = applyTableState(targets, state, {
-      filterText: (item) => `${item.name} ${item.slug} ${item.type} ${item.audience ?? ''}`,
-      sortValue: (item, column) => String(item[column as keyof Target] ?? ''),
+      filterText: (t) => `${t.name} ${t.slug} ${t.type} ${t.audience ?? ''}`,
+      sortValue: (t, column) => String(t[column as keyof Target] ?? ''),
     })
     return (
-      <StaffPage
-        title="Targets"
-        staff={staff}
-        csrfToken={csrfToken}
-        activeHref={routes.targets.index.href()}
-        flashes={flashes}
-      >
+      <Page base={base} title="Targets" section={section()}>
         <SpaceBetween size="l">
           <Header
             variant="h1"
@@ -88,10 +70,9 @@ export function TargetsIndexPage(
             actions={
               <SpaceBetween size="xs" direction="horizontal">
                 {development ? (
-                  <form method="post" action={routes.targets.addFakes.href()}>
-                    <input type="hidden" name="_csrf" value={csrfToken} />
+                  <Post action={routes.targets.addFakes.href()} csrf={base.csrfToken}>
                     <Button type="submit">Add fake targets</Button>
-                  </form>
+                  </Post>
                 ) : null}
                 <Button variant="primary" href={routes.targets.new.href()}>
                   Register target
@@ -104,7 +85,7 @@ export function TargetsIndexPage(
           <Table
             columns={COLUMNS}
             items={items}
-            rowKey={(item: Target) => item.id}
+            rowKey={(t: Target) => t.id}
             state={state}
             url={url}
             totalCount={targets.length}
@@ -113,50 +94,33 @@ export function TargetsIndexPage(
             empty="No targets registered"
           />
         </SpaceBetween>
-      </StaffPage>
+      </Page>
     )
   }
 }
 
-export interface TargetValues {
-  name: string
-  slug: string
-  audience: string
-  url: string
-  enabled: boolean
-}
-
 export function TargetFormPage(
-  handle: Handle<
-    PageBase & {
-      target: Target | null
-      values: TargetValues
-      errors: Partial<Record<keyof TargetValues, string>>
-    }
-  >,
+  handle: Handle<{
+    base: PageBase
+    target: Target | null
+    values: TargetValues
+    errors: Errors<TargetValues>
+  }>,
 ) {
   return () => {
-    let { staff, csrfToken, flashes, target, values, errors } = handle.props
-    let editing = target !== null
-    let title = target ? target.name : 'Register target'
-    let action = target
-      ? routes.targets.update.href({ id: target.id })
-      : routes.targets.create.href()
-    let selfHref = target ? routes.targets.edit.href({ id: target.id }) : routes.targets.new.href()
+    let { base, target: t, values: v, errors: e } = handle.props
+    let title = t ? t.name : 'Register target'
     return (
-      <StaffPage
+      <Page
+        base={base}
         title={title}
-        staff={staff}
-        csrfToken={csrfToken}
-        activeHref={routes.targets.index.href()}
-        flashes={flashes}
-        breadcrumbs={[
-          { text: 'Targets', href: routes.targets.index.href() },
-          { text: title, href: selfHref },
-        ]}
+        section={section()}
+        crumb={[title, t ? routes.targets.edit.href({ id: t.id }) : routes.targets.new.href()]}
       >
-        <form method="post" action={action}>
-          <input type="hidden" name="_csrf" value={csrfToken} />
+        <Post
+          action={t ? routes.targets.update.href({ id: t.id }) : routes.targets.create.href()}
+          csrf={base.csrfToken}
+        >
           <SpaceBetween size="l">
             <Header
               variant="h1"
@@ -170,76 +134,43 @@ export function TargetFormPage(
             </Alert>
             <Container header={<Header>Endpoint target</Header>}>
               <SpaceBetween size="l">
-                <FormField label="Name" controlId="name" errorText={errors.name}>
-                  <Input
-                    id="name"
-                    name="name"
-                    value={values.name}
-                    required
-                    invalid={Boolean(errors.name)}
-                  />
-                </FormField>
-                <FormField
+                <Field label="Name" name="name" value={v.name} error={e.name} required />
+                <Field
                   label="Slug"
-                  controlId="slug"
+                  name="slug"
                   description="Lowercase words joined by dashes. These should not change, so pick wisely!"
-                  errorText={errors.slug}
-                >
-                  <Input
-                    id="slug"
-                    name="slug"
-                    value={values.slug}
-                    required
-                    disabled={editing}
-                    invalid={Boolean(errors.slug)}
-                  />
-                </FormField>
-                <FormField
+                  value={v.slug}
+                  error={e.slug}
+                  required
+                  disabled={t !== null}
+                />
+                <Field
                   label="Audience"
-                  controlId="audience"
+                  name="audience"
                   description="The aud claim the program checks, ex: orpheus-of-making."
-                  errorText={errors.audience}
-                >
-                  <Input
-                    id="audience"
-                    name="audience"
-                    value={values.audience}
-                    required
-                    invalid={Boolean(errors.audience)}
-                  />
-                </FormField>
-                <FormField
+                  value={v.audience}
+                  error={e.audience}
+                  required
+                />
+                <Field
                   label="Base URL"
-                  controlId="url"
+                  name="url"
                   description="The hub posts to <base URL>/api/privacy/delete and /export."
-                  errorText={errors.url}
-                >
-                  <Input
-                    id="url"
-                    name="url"
-                    type="url"
-                    value={values.url}
-                    required
-                    invalid={Boolean(errors.url)}
-                    placeholder="https://orpheus.hackclub.com"
-                  />
-                </FormField>
-                <Checkbox id="enabled" name="enabled" checked={values.enabled}>
+                  type="url"
+                  value={v.url}
+                  error={e.url}
+                  required
+                  placeholder="https://orpheus.hackclub.com"
+                />
+                <Checkbox id="enabled" name="enabled" checked={v.enabled}>
                   Enabled: include this target in new requests
                 </Checkbox>
               </SpaceBetween>
             </Container>
-            <SpaceBetween size="xs" direction="horizontal">
-              <Button variant="link" href={routes.targets.index.href()}>
-                Cancel
-              </Button>
-              <Button variant="primary" type="submit">
-                {editing ? 'Save' : 'Register'}
-              </Button>
-            </SpaceBetween>
+            <Actions cancel={routes.targets.index.href()}>{t ? 'Save' : 'Register'}</Actions>
           </SpaceBetween>
-        </form>
-      </StaffPage>
+        </Post>
+      </Page>
     )
   }
 }

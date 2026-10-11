@@ -97,16 +97,14 @@ const REFERENCES = [
 export function DeletionsDocsPage(handle: Handle<{ staff: Staff | null; csrfToken: string }>) {
   return () => {
     let { staff, csrfToken } = handle.props
-    let title = 'Implementing deletions'
-    let activeHref = routes.docs.deletions.href()
-    let content = <DeletionsDocs />
+    let p = { title: 'Implementing deletions', activeHref: routes.docs.deletions.href() }
     return staff ? (
-      <StaffPage title={title} staff={staff} csrfToken={csrfToken} activeHref={activeHref}>
-        {content}
+      <StaffPage {...p} staff={staff} csrfToken={csrfToken}>
+        <DeletionsDocs />
       </StaffPage>
     ) : (
-      <GuestPage title={title} activeHref={activeHref}>
-        {content}
+      <GuestPage {...p}>
+        <DeletionsDocs />
       </GuestPage>
     )
   }
@@ -343,9 +341,9 @@ function DeletionsDocs() {
 
           <h2>reference implementations (steal these)</h2>
           <ul>
-            {REFERENCES.map((reference) => (
-              <li key={reference.name}>
-                <a href={reference.href}>{reference.name}</a>: {reference.stack}
+            {REFERENCES.map((r) => (
+              <li key={r.name}>
+                <a href={r.href}>{r.name}</a>: {r.stack}
               </li>
             ))}
           </ul>

@@ -1,82 +1,71 @@
 import type { Handle, RemixNode } from 'remix/component'
 
-import { Document } from '../actions/document.tsx'
 import type { Staff } from '../auth/staff.ts'
 import { env } from '../env.ts'
 import { routes } from '../routes.ts'
-import { AppLayout, type SideNavigationSection } from './app-layout.tsx'
+import { AppLayout, DOCS } from './app-layout.tsx'
 import { Breadcrumbs, type BreadcrumbItem } from './breadcrumbs.tsx'
 import { Button } from './button.tsx'
 import { Flashbar, type FlashItem } from './flashbar.tsx'
 
-export interface StaffPageProps {
-  title: string
-  staff: Staff
-  csrfToken: string
-  activeHref: string
-  breadcrumbs?: BreadcrumbItem[]
-  flashes?: FlashItem[]
-  refreshSeconds?: number
-  children: RemixNode
-}
-
-function navigation(): SideNavigationSection[] {
-  let sections: SideNavigationSection[] = [
-    {
-      links: [
-        { text: 'Requests', href: routes.requests.index.href() },
-        { text: 'Targets', href: routes.targets.index.href() },
-      ],
-    },
-    {
-      title: 'Docs',
-      links: [{ text: 'Implementing deletions', href: routes.docs.deletions.href() }],
-    },
-  ]
-  if (env.NODE_ENV === 'development') {
-    sections.push({
-      title: 'Development',
-      links: [{ text: 'Components', href: routes.dev.components.href() }],
-    })
-  }
-  return sections
-}
-
-export function StaffPage(handle: Handle<StaffPageProps>) {
+export function StaffPage(
+  handle: Handle<{
+    title: string
+    staff: Staff
+    csrfToken: string
+    activeHref: string
+    breadcrumbs?: BreadcrumbItem[]
+    flashes?: FlashItem[]
+    refreshSeconds?: number
+    children: RemixNode
+  }>,
+) {
   return () => {
     let { title, staff, csrfToken, activeHref, breadcrumbs, flashes, refreshSeconds, children } =
       handle.props
     return (
-      <Document
-        title={`${title} · epic data yeeter 9000`}
+      <AppLayout
+        title={title}
         head={
           refreshSeconds ? (
             <meta http-equiv="refresh" content={String(refreshSeconds)} />
           ) : undefined
         }
+        homeHref={routes.home.href()}
+        activeHref={activeHref}
+        navigation={[
+          {
+            links: [
+              { text: 'Requests', href: routes.requests.index.href() },
+              { text: 'Targets', href: routes.targets.index.href() },
+            ],
+          },
+          DOCS,
+          ...(env.NODE_ENV === 'development'
+            ? [
+                {
+                  title: 'Development',
+                  links: [{ text: 'Components', href: routes.dev.components.href() }],
+                },
+              ]
+            : []),
+        ]}
+        utilities={
+          <>
+            <span class="top-nav__user">{staff.name ?? staff.sub}</span>
+            <form method="post" action={routes.auth.logout.href()}>
+              <input type="hidden" name="_csrf" value={csrfToken} />
+              <Button type="submit" variant="link">
+                Sign out
+              </Button>
+            </form>
+          </>
+        }
+        breadcrumbs={breadcrumbs ? <Breadcrumbs items={breadcrumbs} /> : undefined}
+        notifications={flashes?.length ? <Flashbar items={flashes} /> : undefined}
       >
-        <AppLayout
-          title="epic data yeeter 9000"
-          homeHref={routes.home.href()}
-          activeHref={activeHref}
-          navigation={navigation()}
-          utilities={
-            <>
-              <span class="top-nav__user">{staff.name ?? staff.sub}</span>
-              <form method="post" action={routes.auth.logout.href()}>
-                <input type="hidden" name="_csrf" value={csrfToken} />
-                <Button type="submit" variant="link">
-                  Sign out
-                </Button>
-              </form>
-            </>
-          }
-          breadcrumbs={breadcrumbs ? <Breadcrumbs items={breadcrumbs} /> : undefined}
-          notifications={flashes && flashes.length > 0 ? <Flashbar items={flashes} /> : undefined}
-        >
-          {children}
-        </AppLayout>
-      </Document>
+        {children}
+      </AppLayout>
     )
   }
 }

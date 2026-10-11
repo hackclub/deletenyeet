@@ -13,13 +13,10 @@ export type StatusType =
   | 'loading'
 
 export function StatusIndicator(handle: Handle<{ type: StatusType; children: RemixNode }>) {
-  return () => {
-    let { type, children } = handle.props
-    return (
-      <span class={`status status--${type}`}>
-        <Icon name={`status-${type}`} />
-        <span>{children}</span>
-      </span>
-    )
-  }
+  return () => (
+    <span class={`status status--${handle.props.type}`}>
+      <Icon name={`status-${handle.props.type}`} />
+      <span>{handle.props.children}</span>
+    </span>
+  )
 }

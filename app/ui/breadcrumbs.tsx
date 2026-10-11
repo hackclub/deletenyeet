@@ -11,12 +11,12 @@ export function Breadcrumbs(handle: Handle<{ items: BreadcrumbItem[] }>) {
     return (
       <nav aria-label="Breadcrumbs">
         <ol class="breadcrumbs">
-          {items.map((item, index) => (
-            <li key={item.href}>
-              {index === items.length - 1 ? (
-                <span aria-current="page">{item.text}</span>
+          {items.map(({ text, href }, i) => (
+            <li key={href}>
+              {i === items.length - 1 ? (
+                <span aria-current="page">{text}</span>
               ) : (
-                <a href={item.href}>{item.text}</a>
+                <a href={href}>{text}</a>
               )}
             </li>
           ))}

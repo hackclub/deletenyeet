@@ -1,19 +1,20 @@
 import type { Handle, RemixNode } from 'remix/component'
 
-export interface HeaderProps {
-  variant?: 'h1' | 'h2' | 'h3'
-  children: RemixNode
-  counter?: string
-  description?: RemixNode
-  actions?: RemixNode
-}
+import { slot } from './slot.tsx'
 
-export function Header(handle: Handle<HeaderProps>) {
+export function Header(
+  handle: Handle<{
+    variant?: 'h1' | 'h2' | 'h3'
+    children: RemixNode
+    counter?: string
+    description?: RemixNode
+    actions?: RemixNode
+  }>,
+) {
   return () => {
-    let { variant = 'h2', children, counter, description, actions } = handle.props
-    let Tag = variant
+    let { variant: Tag = 'h2', children, counter, description, actions } = handle.props
     return (
-      <div class={`header header--${variant}`}>
+      <div class={`header header--${Tag}`}>
         <div class="header__text">
           <Tag class="header__title">
             {children}
@@ -21,7 +22,7 @@ export function Header(handle: Handle<HeaderProps>) {
           </Tag>
           {description ? <p class="header__description">{description}</p> : null}
         </div>
-        {actions ? <div class="header__actions">{actions}</div> : null}
+        {slot('header__actions', actions)}
       </div>
     )
   }

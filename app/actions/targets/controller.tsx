@@ -1,238 +1,195 @@
-import { getCsrfToken } from 'remix/middleware/csrf'
+import type { Database } from 'remix/data-table'
 import { redirect } from 'remix/response/redirect'
 import { createController } from 'remix/router'
-import type { Database } from 'remix/data-table'
 
-import { recordAudit, type AuditActor } from '../../data/audit.ts'
-import { targets } from '../../data/tables.ts'
+import type { Staff } from '../../auth/staff.ts'
+import { recordAudit } from '../../data/audit.ts'
+import { targets, type Target } from '../../data/tables.ts'
 import { FAKE_TARGET_AUDIENCE, FAKE_TARGET_MODES } from '../../dev/fake-target.ts'
 import { env } from '../../env.ts'
+import type { AppContext } from '../../router.ts'
 import { routes } from '../../routes.ts'
 import { readEndpointConfig } from '../../targets/endpoint.ts'
-import { setFlash, takeFlashes } from '../flash.ts'
 import { UUID_PATTERN } from '../requests/format.ts'
+import { fields, notFound, page, plural, setFlash, type Errors } from '../shared.tsx'
 import { TargetFormPage, TargetsIndexPage, type TargetValues } from './pages.tsx'
 
-const SLUG_PATTERN = /^[a-z0-9]+(-[a-z0-9]+)*$/
+const SLUG = /^[a-z0-9]+(-[a-z0-9]+)*$/
 
-function notFound() {
-  return new Response('Not Found', { status: 404 })
-}
+let index = () => redirect(routes.targets.index.href(), 303)
+let taken = async (db: Database, slug: string) =>
+  (await db.findOne(targets, { where: { slug } })) !== null
+let load = async (c: AppContext, id: string) =>
+  UUID_PATTERN.test(id) ? c.db.find(targets, id) : null
 
-function readValues(form: FormData | undefined): TargetValues {
-  let field = (name: string) => String(form?.get(name) ?? '').trim()
+function read(form?: FormData): TargetValues {
+  let f = fields(form)
   return {
-    name: field('name'),
-    slug: field('slug').toLowerCase(),
-    audience: field('audience'),
-    url: field('url'),
+    name: f('name'),
+    slug: f('slug').toLowerCase(),
+    audience: f('audience'),
+    url: f('url'),
     enabled: form?.get('enabled') === 'on',
   }
 }
 
-function validate(values: TargetValues, checkSlug: boolean) {
-  let errors: Partial<Record<keyof TargetValues, string>> = {}
-  if (values.name.length === 0 || values.name.length > 200)
-    errors.name = 'Enter a name up to 200 characters.'
-  if (checkSlug && (!SLUG_PATTERN.test(values.slug) || values.slug.length > 64)) {
+function validate(v: TargetValues, checkSlug: boolean) {
+  let errors: Errors<TargetValues> = {}
+  let long = (s: string) => s.length === 0 || s.length > 200
+  if (long(v.name)) errors.name = 'Enter a name up to 200 characters.'
+  if (checkSlug && (!SLUG.test(v.slug) || v.slug.length > 64))
     errors.slug = 'Use lowercase letters, digits, and single dashes.'
-  }
-  if (values.audience.length === 0 || values.audience.length > 200)
-    errors.audience = 'Enter the audience the program expects.'
-  let config = readEndpointConfig({ url: values.url })
+  if (long(v.audience)) errors.audience = 'Enter the audience the program expects.'
+  let config = readEndpointConfig({ url: v.url })
   if (!config) errors.url = 'Enter an http or https URL.'
   else if (env.NODE_ENV === 'production' && !config.url.startsWith('https:'))
     errors.url = 'Production targets must use https.'
   return { errors, config }
 }
 
-async function slugTaken(db: Database, slug: string) {
-  return (await db.findOne(targets, { where: { slug } })) !== null
+let form = (
+  c: AppContext,
+  s: Staff,
+  target: Target | null,
+  values: TargetValues,
+  errors: Errors<TargetValues> = {},
+) => {
+  let bad = Object.keys(errors).length > 0
+  return c.render(
+    <TargetFormPage base={page(c, s, !bad)} target={target} values={values} errors={errors} />,
+    bad ? { status: 400 } : undefined,
+  )
 }
+
+let register = (db: Database, sub: string, { url, ...t }: TargetValues, detail: object) =>
+  db.transaction(async (tx) => {
+    await tx.create(targets, { ...t, type: 'endpoint', config: { url } })
+    await recordAudit(tx, {
+      actor: { type: 'staff', id: sub },
+      action: 'target.registered',
+      detail: { slug: t.slug, type: 'endpoint', url, ...detail },
+    })
+  })
 
 export default createController(routes.targets, {
   actions: {
-    async index(context) {
-      if (!context.auth.ok) return notFound()
-      return context.render(
+    async index(c) {
+      if (!c.auth.ok) return notFound()
+      return c.render(
         <TargetsIndexPage
-          staff={context.auth.identity}
-          csrfToken={getCsrfToken(context)}
-          flashes={takeFlashes(context.session)}
-          targets={await context.db.findMany(targets, { orderBy: ['name', 'asc'] })}
-          url={context.url}
+          base={page(c, c.auth.identity)}
+          targets={await c.db.findMany(targets, { orderBy: ['name', 'asc'] })}
+          url={c.url}
           development={env.NODE_ENV === 'development'}
         />,
       )
     },
 
-    new(context) {
-      if (!context.auth.ok) return notFound()
-      return context.render(
-        <TargetFormPage
-          staff={context.auth.identity}
-          csrfToken={getCsrfToken(context)}
-          flashes={takeFlashes(context.session)}
-          target={null}
-          values={{ name: '', slug: '', audience: '', url: '', enabled: true }}
-          errors={{}}
-        />,
-      )
-    },
-
-    async create(context) {
-      if (!context.auth.ok) return notFound()
-      let values = readValues(context.formData)
-      let { errors, config } = validate(values, true)
-      if (!errors.slug && (await slugTaken(context.db, values.slug)))
-        errors.slug = 'That slug is already registered.'
-      if (Object.keys(errors).length > 0 || !config) {
-        return context.render(
-          <TargetFormPage
-            staff={context.auth.identity}
-            csrfToken={getCsrfToken(context)}
-            flashes={[]}
-            target={null}
-            values={values}
-            errors={errors}
-          />,
-          { status: 400 },
-        )
-      }
-      let actor: AuditActor = { type: 'staff', id: context.auth.identity.sub }
-      await context.db.transaction(async (tx) => {
-        await tx.create(targets, {
-          name: values.name,
-          slug: values.slug,
-          type: 'endpoint',
-          audience: values.audience,
-          config: { url: config.url },
-          enabled: values.enabled,
-        })
-        await recordAudit(tx, {
-          actor,
-          action: 'target.registered',
-          detail: {
-            slug: values.slug,
-            type: 'endpoint',
-            audience: values.audience,
-            url: config.url,
-            enabled: values.enabled,
-          },
-        })
+    new(c) {
+      if (!c.auth.ok) return notFound()
+      return form(c, c.auth.identity, null, {
+        name: '',
+        slug: '',
+        audience: '',
+        url: '',
+        enabled: true,
       })
-      setFlash(context.session, { type: 'success', header: `Registered ${values.name}` })
-      return redirect(routes.targets.index.href(), 303)
     },
 
-    async addFakes(context) {
-      if (!context.auth.ok || env.NODE_ENV !== 'development') return notFound()
-      let actor: AuditActor = { type: 'staff', id: context.auth.identity.sub }
+    async create(c) {
+      if (!c.auth.ok) return notFound()
+      let v = read(c.formData)
+      let { errors, config } = validate(v, true)
+      if (!errors.slug && (await taken(c.db, v.slug)))
+        errors.slug = 'That slug is already registered.'
+      if (Object.keys(errors).length > 0 || !config)
+        return form(c, c.auth.identity, null, v, errors)
+      await register(
+        c.db,
+        c.auth.identity.sub,
+        { ...v, url: config.url },
+        {
+          audience: v.audience,
+          enabled: v.enabled,
+        },
+      )
+      setFlash(c.session, { type: 'success', header: `Registered ${v.name}` })
+      return index()
+    },
+
+    async addFakes(c) {
+      if (!c.auth.ok || env.NODE_ENV !== 'development') return notFound()
       let added = 0
       for (let mode of FAKE_TARGET_MODES) {
         let slug = `fake-${mode}`
-        if (await slugTaken(context.db, slug)) continue
-        let url = `http://127.0.0.1:${env.FAKE_TARGET_PORT}/${mode}`
-        await context.db.transaction(async (tx) => {
-          await tx.create(targets, {
+        if (await taken(c.db, slug)) continue
+        await register(
+          c.db,
+          c.auth.identity.sub,
+          {
             name: `Fake target (${mode})`,
             slug,
-            type: 'endpoint',
             audience: FAKE_TARGET_AUDIENCE,
-            config: { url },
+            url: `http://127.0.0.1:${env.FAKE_TARGET_PORT}/${mode}`,
             enabled: mode === 'ok' || mode === 'flaky',
-          })
-          await recordAudit(tx, {
-            actor,
-            action: 'target.registered',
-            detail: { slug, type: 'endpoint', url, fake: true },
-          })
-        })
+          },
+          { fake: true },
+        )
         added++
       }
-      setFlash(context.session, {
+      setFlash(c.session, {
         type: 'success',
-        header: `Added ${added} fake target${added === 1 ? '' : 's'}`,
+        header: `Added ${plural(added, 'fake target')}`,
         content: 'ok and flaky are enabled; enable down, reject, or missing to see failures.',
       })
-      return redirect(routes.targets.index.href(), 303)
+      return index()
     },
 
-    async edit(context) {
-      if (!context.auth.ok) return notFound()
-      if (!UUID_PATTERN.test(context.params.id)) return notFound()
-      let target = await context.db.find(targets, context.params.id)
-      if (!target) return notFound()
-      return context.render(
-        <TargetFormPage
-          staff={context.auth.identity}
-          csrfToken={getCsrfToken(context)}
-          flashes={takeFlashes(context.session)}
-          target={target}
-          values={{
-            name: target.name,
-            slug: target.slug,
-            audience: target.audience ?? '',
-            url: readEndpointConfig(target.config)?.url ?? '',
-            enabled: target.enabled,
-          }}
-          errors={{}}
-        />,
-      )
+    async edit(c) {
+      if (!c.auth.ok) return notFound()
+      let t = await load(c, c.params.id)
+      if (!t) return notFound()
+      return form(c, c.auth.identity, t, {
+        name: t.name,
+        slug: t.slug,
+        audience: t.audience ?? '',
+        url: readEndpointConfig(t.config)?.url ?? '',
+        enabled: t.enabled,
+      })
     },
 
-    async update(context) {
-      if (!context.auth.ok) return notFound()
-      if (!UUID_PATTERN.test(context.params.id)) return notFound()
-      let target = await context.db.find(targets, context.params.id)
-      if (!target) return notFound()
-      let values = { ...readValues(context.formData), slug: target.slug }
-      let { errors, config } = validate(values, false)
-      if (Object.keys(errors).length > 0 || !config) {
-        return context.render(
-          <TargetFormPage
-            staff={context.auth.identity}
-            csrfToken={getCsrfToken(context)}
-            flashes={[]}
-            target={target}
-            values={values}
-            errors={errors}
-          />,
-          { status: 400 },
-        )
-      }
+    async update(c) {
+      if (!c.auth.ok) return notFound()
+      let t = await load(c, c.params.id)
+      if (!t) return notFound()
+      let v = { ...read(c.formData), slug: t.slug }
+      let { errors, config } = validate(v, false)
+      if (Object.keys(errors).length > 0 || !config) return form(c, c.auth.identity, t, v, errors)
       let before = {
-        name: target.name,
-        audience: target.audience,
-        url: readEndpointConfig(target.config)?.url ?? null,
-        enabled: target.enabled,
+        name: t.name,
+        audience: t.audience,
+        url: readEndpointConfig(t.config)?.url ?? null,
+        enabled: t.enabled,
       }
-      let after = {
-        name: values.name,
-        audience: values.audience,
-        url: config.url,
-        enabled: values.enabled,
-      }
+      let after = { name: v.name, audience: v.audience, url: config.url, enabled: v.enabled }
       let changed = Object.fromEntries(
-        Object.entries(after)
-          .filter(([key, value]) => before[key as keyof typeof before] !== value)
-          .map(([key, value]) => [key, { from: before[key as keyof typeof before], to: value }]),
+        Object.entries(after).flatMap(([k, to]) => {
+          let from = before[k as keyof typeof before]
+          return from === to ? [] : [[k, { from, to }]]
+        }),
       )
-      await context.db.transaction(async (tx) => {
-        await tx.update(targets, target.id, {
-          name: values.name,
-          audience: values.audience,
-          config: { url: config.url },
-          enabled: values.enabled,
-        })
+      let { sub } = c.auth.identity
+      let { url, ...rest } = after
+      await c.db.transaction(async (tx) => {
+        await tx.update(targets, t.id, { ...rest, config: { url } })
         await recordAudit(tx, {
-          actor: { type: 'staff', id: context.auth.ok ? context.auth.identity.sub : '' },
+          actor: { type: 'staff', id: sub },
           action: 'target.updated',
-          detail: { slug: target.slug, changed },
+          detail: { slug: t.slug, changed },
         })
       })
-      setFlash(context.session, { type: 'success', header: `Saved ${values.name}` })
-      return redirect(routes.targets.index.href(), 303)
+      setFlash(c.session, { type: 'success', header: `Saved ${v.name}` })
+      return index()
     },
   },
 })

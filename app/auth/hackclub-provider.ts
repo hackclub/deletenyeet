@@ -1,30 +1,29 @@
+import { createHash, randomBytes, timingSafeEqual } from 'node:crypto'
+
 import { createRemoteJWKSet, jwtVerify, type JWTPayload } from 'jose'
 import { createOAuthProvider, type OAuthProvider, type OAuthTokens } from 'remix/auth'
 
 import { SafeError } from '../log.ts'
 
-export const LOGIN_ERROR_CODES = [
-  'idp_error',
-  'discovery_failed',
-  'missing_code',
-  'invalid_transaction',
-  'token_exchange_failed',
-  'invalid_token_response',
-  'id_token_invalid',
-  'nonce_mismatch',
-  'userinfo_failed',
-  'userinfo_mismatch',
-] as const
-
-export type LoginErrorCode = (typeof LOGIN_ERROR_CODES)[number]
+type LoginErrorCode =
+  | 'idp_error'
+  | 'discovery_failed'
+  | 'missing_code'
+  | 'invalid_transaction'
+  | 'token_exchange_failed'
+  | 'invalid_token_response'
+  | 'id_token_invalid'
+  | 'nonce_mismatch'
+  | 'userinfo_failed'
+  | 'userinfo_mismatch'
 
 export class LoginError extends SafeError {
   override name = 'LoginError'
-  readonly code: LoginErrorCode
-
-  constructor(code: LoginErrorCode, options?: ErrorOptions) {
+  constructor(
+    readonly code: LoginErrorCode,
+    options?: ErrorOptions,
+  ) {
     super(`login failed: ${code}`, options)
-    this.code = code
   }
 }
 
@@ -34,265 +33,178 @@ export interface HackClubProfile {
   slackId: string | null
 }
 
-export interface HackClubAuthOptions {
+interface Options {
   issuer: string
   clientId: string
   clientSecret: string
   redirectUri: string
   pkce: boolean
-  scopes?: string[]
 }
 
-interface DiscoveryDocument {
-  issuer: string
-  authorization_endpoint: string
-  token_endpoint: string
-  userinfo_endpoint: string
-  jwks_uri: string
-  id_token_signing_alg_values_supported?: string[]
-}
+const ENDPOINTS = [
+  'authorization_endpoint',
+  'token_endpoint',
+  'userinfo_endpoint',
+  'jwks_uri',
+] as const
+type Discovery = Record<'issuer' | (typeof ENDPOINTS)[number], string>
+type Discovered = { metadata: Discovery; jwks: ReturnType<typeof createRemoteJWKSet> }
 
-interface Discovered {
-  metadata: DiscoveryDocument
-  jwks: ReturnType<typeof createRemoteJWKSet>
-}
+const ALG = 'RS256'
 
-interface ProviderState {
-  nonce: string
-}
-
-export type HackClubAuthProvider = OAuthProvider<HackClubProfile, 'hackclub'> & {
-  discover(): Promise<DiscoveryDocument>
-}
-
-const DEFAULT_SCOPES = ['openid', 'profile']
-const ID_TOKEN_ALGORITHM = 'RS256'
-
-export function createHackClubAuthProvider(options: HackClubAuthOptions): HackClubAuthProvider {
-  let scopes = options.scopes ?? DEFAULT_SCOPES
-  let discovered: Promise<Discovered> | undefined
-
-  function discover(): Promise<Discovered> {
-    discovered ??= loadDiscovery(options.issuer).catch((error) => {
-      discovered = undefined
-      throw error
-    })
-    return discovered
-  }
+export function createHackClubAuthProvider(
+  o: Options,
+): OAuthProvider<HackClubProfile, 'hackclub'> & { discover(): Promise<Discovery> } {
+  let cached: Promise<Discovered> | undefined
+  let discover = () =>
+    (cached ??= loadDiscovery(o.issuer).catch((e) => {
+      cached = undefined
+      throw e
+    }))
 
   let provider = createOAuthProvider<HackClubProfile, 'hackclub'>('hackclub', {
-    async createAuthorizationURL(transaction) {
+    async createAuthorizationURL(t) {
       let { metadata } = await discover()
-      let nonce = randomToken()
-      transaction.providerState = JSON.stringify({ nonce } satisfies ProviderState)
-
+      let nonce = randomBytes(32).toString('base64url')
+      t.providerState = JSON.stringify({ nonce })
       let url = new URL(metadata.authorization_endpoint)
-      url.searchParams.set('response_type', 'code')
-      url.searchParams.set('client_id', options.clientId)
-      url.searchParams.set('redirect_uri', options.redirectUri)
-      url.searchParams.set('scope', scopes.join(' '))
-      url.searchParams.set('state', transaction.state)
-      url.searchParams.set('nonce', nonce)
-      if (options.pkce) {
-        url.searchParams.set('code_challenge', await codeChallenge(transaction.codeVerifier))
-        url.searchParams.set('code_challenge_method', 'S256')
-      }
+      for (let [k, v] of Object.entries({
+        response_type: 'code',
+        client_id: o.clientId,
+        redirect_uri: o.redirectUri,
+        scope: 'openid profile',
+        state: t.state,
+        nonce,
+        ...(o.pkce && {
+          code_challenge: createHash('sha256').update(t.codeVerifier).digest('base64url'),
+          code_challenge_method: 'S256',
+        }),
+      }))
+        url.searchParams.set(k, v)
       return url
     },
 
-    async handleCallback(context, transaction) {
+    async handleCallback(context, t) {
       let { metadata, jwks } = await discover()
-      let { nonce } = parseProviderState(transaction.providerState)
-
+      let nonce = parseNonce(t.providerState)
       let code = context.url.searchParams.get('code')
       if (!code) throw new LoginError('missing_code')
 
-      let tokens = await exchangeCode(metadata, options, code, transaction.codeVerifier)
-      let claims = await verifyIdToken(tokens.idToken, jwks, metadata.issuer, options.clientId)
-      if (typeof claims.nonce !== 'string' || !timingSafeEqual(claims.nonce, nonce)) {
+      let tokens = await exchangeCode(metadata, o, code, t.codeVerifier)
+      let claims = await verifyIdToken(tokens.idToken, jwks, metadata.issuer, o.clientId)
+      if (!isFilled(claims.nonce) || !safeEqual(claims.nonce, nonce))
         throw new LoginError('nonce_mismatch')
-      }
 
-      let userinfo = await fetchUserinfo(metadata, tokens.accessToken)
-      if (userinfo.sub !== claims.sub) throw new LoginError('userinfo_mismatch')
+      let info = await fetchJson('userinfo_failed', metadata.userinfo_endpoint, {
+        headers: { Authorization: `Bearer ${tokens.accessToken}` },
+      })
+      if (typeof info.sub !== 'string') throw new LoginError('userinfo_failed')
+      if (info.sub !== claims.sub) throw new LoginError('userinfo_mismatch')
 
-      let profile: HackClubProfile = {
-        sub: claims.sub,
-        name: stringClaim(userinfo.name) ?? stringClaim(claims.name),
-        slackId: stringClaim(userinfo.slack_id) ?? stringClaim(claims.slack_id),
-      }
-
+      let { sub } = claims
+      let pick = (k: string) => str(info[k]) ?? str(claims[k])
       return {
         provider: 'hackclub',
-        account: { provider: 'hackclub', providerAccountId: claims.sub },
-        profile,
+        account: { provider: 'hackclub', providerAccountId: sub },
+        profile: { sub, name: pick('name'), slackId: pick('slack_id') },
         tokens,
       }
     },
   })
 
-  return Object.assign(provider, {
-    async discover() {
-      return (await discover()).metadata
-    },
+  return Object.assign(provider, { discover: async () => (await discover()).metadata })
+}
+
+async function fetchJson(
+  code: LoginErrorCode,
+  url: string | URL,
+  init: { method?: string; headers?: Record<string, string>; body?: URLSearchParams } = {},
+) {
+  let r = await fetch(url, {
+    ...init,
+    headers: { Accept: 'application/json', ...init.headers },
+    signal: AbortSignal.timeout(10_000),
+  }).catch((cause) => {
+    throw new LoginError(code, { cause })
   })
+  if (!r.ok) throw new LoginError(code)
+  return ((await r.json().catch(() => null)) ?? {}) as Record<string, unknown>
 }
 
 async function loadDiscovery(issuer: string): Promise<Discovered> {
-  let response: Response
-  try {
-    response = await fetch(new URL('/.well-known/openid-configuration', issuer), {
-      headers: { Accept: 'application/json' },
-      signal: AbortSignal.timeout(10_000),
-    })
-  } catch (error) {
-    throw new LoginError('discovery_failed', { cause: error })
-  }
-  if (!response.ok) throw new LoginError('discovery_failed')
-
-  let metadata = (await response.json()) as Partial<DiscoveryDocument>
-  if (metadata.issuer !== issuer) {
-    throw new SafeError(`discovery issuer ${String(metadata.issuer)} does not match ${issuer}`)
-  }
-  for (let key of [
-    'authorization_endpoint',
-    'token_endpoint',
-    'userinfo_endpoint',
-    'jwks_uri',
-  ] as const) {
-    if (typeof metadata[key] !== 'string' || metadata[key].length === 0) {
-      throw new SafeError(`discovery document is missing ${key}`)
-    }
-  }
-  let algorithms = metadata.id_token_signing_alg_values_supported
-  if (algorithms && !algorithms.includes(ID_TOKEN_ALGORITHM)) {
-    throw new SafeError(`issuer does not sign id tokens with ${ID_TOKEN_ALGORITHM}`)
-  }
-
-  let complete = metadata as DiscoveryDocument
-  return { metadata: complete, jwks: createRemoteJWKSet(new URL(complete.jwks_uri)) }
+  let m = await fetchJson('discovery_failed', new URL('/.well-known/openid-configuration', issuer))
+  if (m.issuer !== issuer)
+    throw new SafeError(`discovery issuer ${String(m.issuer)} does not match ${issuer}`)
+  for (let k of ENDPOINTS)
+    if (!isFilled(m[k])) throw new SafeError(`discovery document is missing ${k}`)
+  let algs = m.id_token_signing_alg_values_supported as string[] | undefined
+  if (algs && !algs.includes(ALG)) throw new SafeError(`issuer does not sign id tokens with ${ALG}`)
+  let d = m as Discovery
+  return { metadata: d, jwks: createRemoteJWKSet(new URL(d.jwks_uri)) }
 }
 
 async function exchangeCode(
-  metadata: DiscoveryDocument,
-  options: HackClubAuthOptions,
+  m: Discovery,
+  o: Options,
   code: string,
-  codeVerifier: string,
+  verifier: string,
 ): Promise<OAuthTokens & { idToken: string }> {
   let body = new URLSearchParams({
     grant_type: 'authorization_code',
     code,
-    redirect_uri: options.redirectUri,
+    redirect_uri: o.redirectUri,
   })
-  if (options.pkce) body.set('code_verifier', codeVerifier)
-
-  let response: Response
-  try {
-    response = await fetch(metadata.token_endpoint, {
-      method: 'POST',
-      headers: {
-        Accept: 'application/json',
-        'Content-Type': 'application/x-www-form-urlencoded',
-        Authorization: basicAuth(options.clientId, options.clientSecret),
-      },
-      body,
-      signal: AbortSignal.timeout(10_000),
-    })
-  } catch (error) {
-    throw new LoginError('token_exchange_failed', { cause: error })
-  }
-  if (!response.ok) throw new LoginError('token_exchange_failed')
-
-  let json = (await response.json().catch(() => null)) as Record<string, unknown> | null
+  if (o.pkce) body.set('code_verifier', verifier)
+  let enc = (v: string) => encodeURIComponent(v).replace(/%20/g, '+')
+  let j = await fetchJson('token_exchange_failed', m.token_endpoint, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/x-www-form-urlencoded',
+      Authorization: `Basic ${btoa(`${enc(o.clientId)}:${enc(o.clientSecret)}`)}`,
+    },
+    body,
+  })
   if (
-    json === null ||
-    typeof json.access_token !== 'string' ||
-    typeof json.id_token !== 'string' ||
-    (typeof json.token_type === 'string' && json.token_type.toLowerCase() !== 'bearer')
-  ) {
+    typeof j.access_token !== 'string' ||
+    typeof j.id_token !== 'string' ||
+    (typeof j.token_type === 'string' && j.token_type.toLowerCase() !== 'bearer')
+  )
     throw new LoginError('invalid_token_response')
-  }
-
-  return { accessToken: json.access_token, idToken: json.id_token, tokenType: 'Bearer' }
+  return { accessToken: j.access_token, idToken: j.id_token, tokenType: 'Bearer' }
 }
 
 async function verifyIdToken(
-  idToken: string,
+  token: string,
   jwks: Discovered['jwks'],
   issuer: string,
   clientId: string,
-): Promise<JWTPayload & { sub: string }> {
-  let payload: JWTPayload
-  try {
-    ;({ payload } = await jwtVerify(idToken, jwks, {
-      issuer,
-      audience: clientId,
-      algorithms: [ID_TOKEN_ALGORITHM],
-      requiredClaims: ['sub', 'iat', 'exp'],
-      clockTolerance: 30,
-    }))
-  } catch (error) {
-    throw new LoginError('id_token_invalid', { cause: error })
-  }
-
-  if (Array.isArray(payload.aud) && payload.aud.length > 1 && payload.azp !== clientId) {
+) {
+  let { payload: p } = await jwtVerify(token, jwks, {
+    issuer,
+    audience: clientId,
+    algorithms: [ALG],
+    requiredClaims: ['sub', 'iat', 'exp'],
+    clockTolerance: 30,
+  }).catch((cause) => {
+    throw new LoginError('id_token_invalid', { cause })
+  })
+  if ((Array.isArray(p.aud) && p.aud.length > 1 && p.azp !== clientId) || !isFilled(p.sub))
     throw new LoginError('id_token_invalid')
-  }
-  if (typeof payload.sub !== 'string' || payload.sub.length === 0) {
-    throw new LoginError('id_token_invalid')
-  }
-
-  return payload as JWTPayload & { sub: string }
+  return p as JWTPayload & { sub: string }
 }
 
-async function fetchUserinfo(metadata: DiscoveryDocument, accessToken: string) {
-  let response: Response
+function parseNonce(v: string | undefined): string {
   try {
-    response = await fetch(metadata.userinfo_endpoint, {
-      headers: { Accept: 'application/json', Authorization: `Bearer ${accessToken}` },
-      signal: AbortSignal.timeout(10_000),
-    })
-  } catch (error) {
-    throw new LoginError('userinfo_failed', { cause: error })
-  }
-  if (!response.ok) throw new LoginError('userinfo_failed')
-
-  let json = (await response.json().catch(() => null)) as Record<string, unknown> | null
-  if (json === null || typeof json.sub !== 'string') throw new LoginError('userinfo_failed')
-  return json as Record<string, unknown> & { sub: string }
-}
-
-function parseProviderState(value: string | undefined): ProviderState {
-  try {
-    let parsed = JSON.parse(value ?? '') as Partial<ProviderState>
-    if (typeof parsed.nonce === 'string' && parsed.nonce.length > 0) return { nonce: parsed.nonce }
+    let { nonce } = JSON.parse(v ?? '')
+    if (isFilled(nonce)) return nonce
   } catch {}
   throw new LoginError('invalid_transaction')
 }
 
-function stringClaim(value: unknown): string | null {
-  return typeof value === 'string' && value.length > 0 ? value : null
-}
+const isFilled = (v: unknown): v is string => typeof v === 'string' && v.length > 0
+const str = (v: unknown) => (isFilled(v) ? v : null)
 
-function basicAuth(clientId: string, clientSecret: string) {
-  let encode = (value: string) => encodeURIComponent(value).replace(/%20/g, '+')
-  return `Basic ${btoa(`${encode(clientId)}:${encode(clientSecret)}`)}`
-}
-
-async function codeChallenge(verifier: string) {
-  let digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(verifier))
-  return Buffer.from(digest).toString('base64url')
-}
-
-function randomToken() {
-  return Buffer.from(crypto.getRandomValues(new Uint8Array(32))).toString('base64url')
-}
-
-function timingSafeEqual(a: string, b: string) {
-  let left = new TextEncoder().encode(a)
-  let right = new TextEncoder().encode(b)
-  if (left.length !== right.length) return false
-  let diff = 0
-  for (let index = 0; index < left.length; index++) diff |= left[index]! ^ right[index]!
-  return diff === 0
+function safeEqual(a: string, b: string) {
+  let [x, y] = [Buffer.from(a), Buffer.from(b)]
+  return x.length === y.length && timingSafeEqual(x, y)
 }

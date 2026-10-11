@@ -1,37 +1,38 @@
 import type { Handle, RemixNode } from 'remix/component'
 
 import { Icon } from './icon.tsx'
+import { slot } from './slot.tsx'
 
-export interface FormFieldProps {
-  label: string
-  controlId: string
-  description?: RemixNode
-  constraintText?: RemixNode
-  errorText?: string
-  children: RemixNode
-}
-
-export function FormField(handle: Handle<FormFieldProps>) {
+export function FormField(
+  handle: Handle<{
+    label: string
+    controlId: string
+    description?: RemixNode
+    constraintText?: RemixNode
+    errorText?: string
+    children: RemixNode
+  }>,
+) {
   return () => {
-    let { label, controlId, description, constraintText, errorText, children } = handle.props
+    let { label, controlId: id, description, constraintText, errorText, children } = handle.props
     return (
       <div class="form-field">
-        <label class="form-field__label" for={controlId}>
+        <label class="form-field__label" for={id}>
           {label}
         </label>
         {description ? (
-          <div class="form-field__description" id={`${controlId}-description`}>
+          <div class="form-field__description" id={`${id}-description`}>
             {description}
           </div>
         ) : null}
         {children}
         {errorText ? (
-          <div class="form-field__error" id={`${controlId}-error`}>
+          <div class="form-field__error" id={`${id}-error`}>
             <Icon name="status-error" />
             <span>{errorText}</span>
           </div>
         ) : null}
-        {constraintText ? <div class="form-field__constraint">{constraintText}</div> : null}
+        {slot('form-field__constraint', constraintText)}
       </div>
     )
   }
@@ -48,6 +49,17 @@ interface ControlProps {
   describedBy?: string
 }
 
+// Attributes every control shares
+const attrs = ({ id, name, required, disabled, invalid, describedBy }: ControlProps) => ({
+  class: 'input',
+  id,
+  name,
+  required,
+  disabled,
+  'aria-invalid': invalid ? ('true' as const) : undefined,
+  'aria-describedby': describedBy,
+})
+
 export function Input(
   handle: Handle<
     ControlProps & {
@@ -57,31 +69,14 @@ export function Input(
   >,
 ) {
   return () => {
-    let {
-      id,
-      name,
-      value,
-      required,
-      disabled,
-      invalid,
-      placeholder,
-      describedBy,
-      type,
-      autocomplete,
-    } = handle.props
+    let { type = 'text', value, placeholder, autocomplete } = handle.props
     return (
       <input
-        class="input"
-        id={id}
-        name={name}
-        type={(type ?? 'text') as 'text'}
+        {...attrs(handle.props)}
+        type={type as 'text'}
         value={value}
-        required={required}
-        disabled={disabled}
         placeholder={placeholder}
         autocomplete={autocomplete}
-        aria-invalid={invalid ? 'true' : undefined}
-        aria-describedby={describedBy}
       />
     )
   }
@@ -89,22 +84,8 @@ export function Input(
 
 export function Textarea(handle: Handle<ControlProps & { rows?: number }>) {
   return () => {
-    let { id, name, value, required, disabled, invalid, placeholder, describedBy, rows } =
-      handle.props
-    return (
-      <textarea
-        class="input"
-        id={id}
-        name={name}
-        rows={rows ?? 3}
-        required={required}
-        disabled={disabled}
-        placeholder={placeholder}
-        aria-invalid={invalid ? 'true' : undefined}
-        aria-describedby={describedBy}
-        value={value ?? ''}
-      />
-    )
+    let { rows = 3, placeholder, value = '' } = handle.props
+    return <textarea {...attrs(handle.props)} rows={rows} placeholder={placeholder} value={value} />
   }
 }
 
@@ -112,20 +93,12 @@ export function Select(
   handle: Handle<ControlProps & { options: { value: string; label: string }[] }>,
 ) {
   return () => {
-    let { id, name, value, required, disabled, invalid, describedBy, options } = handle.props
+    let { value, options } = handle.props
     return (
-      <select
-        class="input"
-        id={id}
-        name={name}
-        required={required}
-        disabled={disabled}
-        aria-invalid={invalid ? 'true' : undefined}
-        aria-describedby={describedBy}
-      >
-        {options.map((option) => (
-          <option key={option.value} value={option.value} selected={option.value === value}>
-            {option.label}
+      <select {...attrs(handle.props)}>
+        {options.map((o) => (
+          <option key={o.value} value={o.value} selected={o.value === value}>
+            {o.label}
           </option>
         ))}
       </select>

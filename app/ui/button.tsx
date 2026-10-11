@@ -2,23 +2,23 @@ import type { Handle, RemixNode } from 'remix/component'
 
 import { Icon, type IconName } from './icon.tsx'
 
-export interface ButtonProps {
-  children?: RemixNode
-  variant?: 'primary' | 'normal' | 'link'
-  href?: string
-  type?: 'button' | 'submit' | 'reset'
-  name?: string
-  value?: string
-  form?: string
-  disabled?: boolean
-  iconName?: IconName
-  ariaLabel?: string
-  fullWidth?: boolean
-  popovertarget?: string
-  popovertargetaction?: 'hide' | 'show' | 'toggle'
-}
-
-export function Button(handle: Handle<ButtonProps>) {
+export function Button(
+  handle: Handle<{
+    children?: RemixNode
+    variant?: 'primary' | 'normal' | 'link'
+    href?: string
+    type?: 'button' | 'submit' | 'reset'
+    name?: string
+    value?: string
+    form?: string
+    disabled?: boolean
+    iconName?: IconName
+    ariaLabel?: string
+    fullWidth?: boolean
+    popovertarget?: string
+    popovertargetaction?: 'hide' | 'show' | 'toggle'
+  }>,
+) {
   return () => {
     let {
       children,
@@ -29,42 +29,27 @@ export function Button(handle: Handle<ButtonProps>) {
       fullWidth,
       ...rest
     } = handle.props
-    let className = [
+    let c = [
       'button',
       `button--${variant}`,
-      iconName && children == null ? 'button--icon' : null,
-      fullWidth ? 'button--full-width' : null,
+      iconName && children == null && 'button--icon',
+      fullWidth && 'button--full-width',
     ]
       .filter(Boolean)
       .join(' ')
-    let content = (
+    let b = (
       <>
         {iconName ? <Icon name={iconName} /> : null}
         {children}
       </>
     )
-
-    if (href !== undefined && !rest.disabled) {
-      return (
-        <a class={className} href={href} aria-label={ariaLabel}>
-          {content}
-        </a>
-      )
-    }
-
-    return (
-      <button
-        class={className}
-        type={rest.type ?? 'button'}
-        name={rest.name}
-        value={rest.value}
-        form={rest.form}
-        disabled={rest.disabled}
-        aria-label={ariaLabel}
-        popovertarget={rest.popovertarget}
-        popovertargetaction={rest.popovertargetaction}
-      >
-        {content}
+    return href !== undefined && !rest.disabled ? (
+      <a class={c} href={href} aria-label={ariaLabel}>
+        {b}
+      </a>
+    ) : (
+      <button {...rest} class={c} type={rest.type ?? 'button'} aria-label={ariaLabel}>
+        {b}
       </button>
     )
   }

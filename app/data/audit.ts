@@ -7,19 +7,15 @@ export type AuditActor =
   | { type: 'slack'; id: string }
   | { type: 'system'; id?: undefined }
 
-export interface AuditEntry {
-  actor: AuditActor
-  action: string
-  requestId?: string
-  detail?: Record<string, unknown>
-}
-
-export async function recordAudit(db: Database, entry: AuditEntry) {
+export async function recordAudit(
+  db: Database,
+  e: { actor: AuditActor; action: string; requestId?: string; detail?: Record<string, unknown> },
+) {
   await db.create(auditEvents, {
-    actor_type: entry.actor.type,
-    actor_id: entry.actor.id ?? null,
-    action: entry.action,
-    request_id: entry.requestId ?? null,
-    detail: entry.detail ?? {},
+    actor_type: e.actor.type,
+    actor_id: e.actor.id ?? null,
+    action: e.action,
+    request_id: e.requestId ?? null,
+    detail: e.detail ?? {},
   })
 }

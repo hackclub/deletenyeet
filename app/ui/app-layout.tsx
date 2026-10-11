@@ -1,91 +1,88 @@
 import type { Handle, RemixNode } from 'remix/component'
 
+import { Document } from '../actions/document.tsx'
+import { routes } from '../routes.ts'
 import { Icon } from './icon.tsx'
+import { slot } from './slot.tsx'
 
-export interface SideNavigationLink {
-  text: string
-  href: string
-}
+export const APP = 'epic data yeeter 9000'
 
-export interface SideNavigationSection {
+export interface NavSection {
   title?: string
-  links: SideNavigationLink[]
+  links: { text: string; href: string }[]
 }
 
-export interface AppLayoutProps {
-  title: string
-  homeHref: string
-  activeHref: string
-  navigation: SideNavigationSection[]
-  utilities?: RemixNode
-  breadcrumbs?: RemixNode
-  notifications?: RemixNode
-  children: RemixNode
+export const DOCS: NavSection = {
+  title: 'Docs',
+  links: [{ text: 'Implementing deletions', href: routes.docs.deletions.href() }],
 }
 
-export function AppLayout(handle: Handle<AppLayoutProps>) {
+const isActive = (href: string, active: string) =>
+  active === href || (href !== '/' && active.startsWith(`${href}/`))
+
+export function AppLayout(
+  handle: Handle<{
+    title: string
+    head?: RemixNode
+    homeHref: string
+    activeHref: string
+    navigation: NavSection[]
+    utilities?: RemixNode
+    breadcrumbs?: RemixNode
+    notifications?: RemixNode
+    children: RemixNode
+  }>,
+) {
   return () => {
-    let {
-      title,
-      homeHref,
-      activeHref,
-      navigation,
-      utilities,
-      breadcrumbs,
-      notifications,
-      children,
-    } = handle.props
+    let { title, head, homeHref, activeHref, navigation, utilities, breadcrumbs, notifications } =
+      handle.props
     return (
-      <div class="app">
-        <input
-          type="checkbox"
-          id="app-nav-toggle"
-          class="app__nav-toggle visually-hidden"
-          aria-label="Toggle navigation"
-        />
-        <header class="top-nav" data-context="top-navigation">
-          <label for="app-nav-toggle" class="top-nav__menu" title="Toggle navigation">
-            <Icon name="menu" />
-          </label>
-          <a class="top-nav__identity" href={homeHref}>
-            {title}
-          </a>
-          {utilities ? <div class="top-nav__utilities">{utilities}</div> : null}
-        </header>
-        <div class="app__body">
-          <nav class="side-nav" aria-label="Main">
-            {navigation.map((section, index) => (
-              <div key={section.title ?? index} class="side-nav__section">
-                {section.title ? <h2 class="side-nav__section-title">{section.title}</h2> : null}
-                <ul>
-                  {section.links.map((link) => (
-                    <li key={link.href}>
-                      <a
-                        class="side-nav__link"
-                        href={link.href}
-                        aria-current={isActive(link.href, activeHref) ? 'page' : undefined}
-                      >
-                        {link.text}
-                      </a>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            ))}
-          </nav>
-          <main class="app__main">
-            {breadcrumbs ? <div class="app__breadcrumbs">{breadcrumbs}</div> : null}
-            <div class="app__notifications">{notifications}</div>
-            {children}
-          </main>
+      <Document title={`${title} · ${APP}`} head={head}>
+        <div class="app">
+          <input
+            type="checkbox"
+            id="app-nav-toggle"
+            class="app__nav-toggle visually-hidden"
+            aria-label="Toggle navigation"
+          />
+          <header class="top-nav" data-context="top-navigation">
+            <label for="app-nav-toggle" class="top-nav__menu" title="Toggle navigation">
+              <Icon name="menu" />
+            </label>
+            <a class="top-nav__identity" href={homeHref}>
+              {APP}
+            </a>
+            {slot('top-nav__utilities', utilities)}
+          </header>
+          <div class="app__body">
+            <nav class="side-nav" aria-label="Main">
+              {navigation.map((s, i) => (
+                <div key={s.title ?? i} class="side-nav__section">
+                  {s.title ? <h2 class="side-nav__section-title">{s.title}</h2> : null}
+                  <ul>
+                    {s.links.map(({ text, href }) => (
+                      <li key={href}>
+                        <a
+                          class="side-nav__link"
+                          href={href}
+                          aria-current={isActive(href, activeHref) ? 'page' : undefined}
+                        >
+                          {text}
+                        </a>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ))}
+            </nav>
+            <main class="app__main">
+              {slot('app__breadcrumbs', breadcrumbs)}
+              <div class="app__notifications">{notifications}</div>
+              {handle.props.children}
+            </main>
+          </div>
         </div>
-      </div>
+      </Document>
     )
   }
-}
-
-function isActive(href: string, activeHref: string) {
-  return href === '/'
-    ? activeHref === '/'
-    : activeHref === href || activeHref.startsWith(`${href}/`)
 }

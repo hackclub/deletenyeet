@@ -6,99 +6,74 @@ import {
   type CallContext,
   type Subject,
   type Target,
-  type TargetResult,
 } from './types.ts'
 
-const TIMEOUT_MS = 15_000
-const RETRYABLE_STATUSES = new Set([408, 425, 429, 500, 502, 503, 504])
+const RETRYABLE = new Set([408, 425, 429, 500, 502, 503, 504])
 
-export interface EndpointConfig {
-  url: string
+export function readEndpointConfig(config: unknown): { url: string } | null {
+  let { url } = (config ?? {}) as { url?: unknown }
+  let u = typeof url === 'string' ? URL.parse(url) : null
+  return u && (u.protocol === 'https:' || u.protocol === 'http:')
+    ? { url: u.href.replace(/\/+$/, '') }
+    : null
 }
 
-export function readEndpointConfig(config: unknown): EndpointConfig | null {
-  if (typeof config !== 'object' || config === null) return null
-  let url = (config as Record<string, unknown>).url
-  if (typeof url !== 'string') return null
-  try {
-    let parsed = new URL(url)
-    if (parsed.protocol !== 'https:' && parsed.protocol !== 'http:') return null
-    return { url: parsed.href.replace(/\/+$/, '') }
-  } catch {
-    return null
-  }
-}
+let json = (res: Response) =>
+  res.json().then(
+    (b) => b as Record<string, unknown> | null,
+    () => null,
+  )
 
-export function createEndpointTarget(options: {
+export function createEndpointTarget(o: {
   slug: string
   audience: string
-  config: EndpointConfig
+  config: { url: string }
 }): Target {
   async function call(
     subject: Subject,
-    context: CallContext,
+    { requestId, action, attempt }: CallContext,
     dryRun: boolean,
-  ): Promise<TargetResult> {
+  ) {
     let token = await mintTargetToken(keyring, {
-      requestId: context.requestId,
-      targetSlug: options.slug,
-      audience: options.audience,
-      action: context.action,
+      requestId,
+      targetSlug: o.slug,
+      audience: o.audience,
+      action,
       dryRun,
-      attempt: context.attempt,
+      attempt,
       subject,
     })
 
-    let response: Response
+    let res: Response
     try {
-      response = await fetch(`${options.config.url}/api/privacy/${context.action}`, {
+      res = await fetch(`${o.config.url}/api/privacy/${action}`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${token}`, Accept: 'application/json' },
         redirect: 'error',
-        signal: AbortSignal.timeout(TIMEOUT_MS),
+        signal: AbortSignal.timeout(15_000),
       })
     } catch (error) {
-      let timedOut = error instanceof DOMException && error.name === 'TimeoutError'
-      throw new TargetCallError(timedOut ? 'timeout' : 'network_error', true)
+      let timeout = error instanceof DOMException && error.name === 'TimeoutError'
+      throw new TargetCallError(timeout ? 'timeout' : 'network_error', true)
     }
 
-    if (!response.ok) {
-      let reason = await errorReason(response)
-      throw new TargetCallError(
-        reason ? `http_${response.status}_${reason}` : `http_${response.status}`,
-        RETRYABLE_STATUSES.has(response.status),
-        response.status,
-      )
+    let { status } = res
+    if (!res.ok) {
+      // programs answer errors as {"error": "snake_case_code"}; anything else is dropped so no personal data lands in error_code
+      let code = (await json(res))?.error
+      let reason = typeof code === 'string' && /^[a-z][a-z0-9_]{0,39}$/.test(code) ? `_${code}` : ''
+      throw new TargetCallError(`http_${status}${reason}`, RETRYABLE.has(status), status)
     }
 
-    let body: unknown
-    try {
-      body = await response.json()
-    } catch {
-      throw new TargetCallError('invalid_response', false, response.status)
-    }
-    let echo = body as Record<string, unknown> | null
-    if (echo?.request_id !== context.requestId || echo?.dry_run !== dryRun) {
-      throw new TargetCallError('invalid_response', false, response.status)
-    }
-    let result = parseTargetResult(body)
-    if (!result) throw new TargetCallError('invalid_response', false, response.status)
+    let body = await json(res)
+    let result =
+      body?.request_id === requestId && body.dry_run === dryRun && parseTargetResult(body)
+    if (!result) throw new TargetCallError('invalid_response', false, status)
     return result
   }
 
   return {
-    dryRun: (subject, context) => call(subject, context, true),
-    execute: (subject, context) => call(subject, context, false),
-  }
-}
-
-// programs answer errors as {"error": "snake_case_code"}; anything else is dropped so no personal data lands in error_code
-async function errorReason(response: Response): Promise<string | null> {
-  try {
-    let body = (await response.json()) as { error?: unknown } | null
-    let code = body?.error
-    return typeof code === 'string' && /^[a-z][a-z0-9_]{0,39}$/.test(code) ? code : null
-  } catch {
-    return null
+    dryRun: (s, c) => call(s, c, true),
+    execute: (s, c) => call(s, c, false),
   }
 }

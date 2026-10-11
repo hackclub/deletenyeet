@@ -1,6 +1,6 @@
 import type { Handle, RemixNode } from 'remix/component'
 
-import type { AlertType } from './alert.tsx'
+import { notice, role, type AlertType } from './alert.tsx'
 import { Icon } from './icon.tsx'
 
 export interface FlashItem {
@@ -13,33 +13,26 @@ export interface FlashItem {
 }
 
 export function Flashbar(handle: Handle<{ items: FlashItem[] }>) {
-  return () => {
-    let { items } = handle.props
-    if (items.length === 0) return null
-    return (
+  return () =>
+    handle.props.items.length ? (
       <ul class="flashbar" aria-label="Notifications">
-        {items.map((item) => (
+        {handle.props.items.map(({ id, type, header, content, action, dismissible }) => (
           <li
-            key={item.id}
-            class={`flash flash--${item.type}`}
-            role={item.type === 'error' ? 'alert' : 'status'}
-            data-context={item.type === 'warning' ? 'flashbar-warning' : 'flashbar'}
+            key={id}
+            class={`flash flash--${type}`}
+            role={role(type)}
+            data-context={type === 'warning' ? 'flashbar-warning' : 'flashbar'}
           >
-            <Icon name={`status-${item.type}`} label={item.type} />
-            <div class="flash__body">
-              {item.header ? <div class="flash__header">{item.header}</div> : null}
-              {item.content ? <div>{item.content}</div> : null}
-            </div>
-            {item.action ? <div class="flash__action">{item.action}</div> : null}
-            {item.dismissible ? (
+            {notice('flash', type, header, content, action)}
+            {dismissible ? (
               <>
                 <input
                   type="checkbox"
-                  id={`flash-dismiss-${item.id}`}
+                  id={`flash-dismiss-${id}`}
                   class="flash__dismiss-state visually-hidden"
                   aria-label="Dismiss notification"
                 />
-                <label for={`flash-dismiss-${item.id}`} class="flash__dismiss" title="Dismiss">
+                <label for={`flash-dismiss-${id}`} class="flash__dismiss" title="Dismiss">
                   <Icon name="close" />
                 </label>
               </>
@@ -47,6 +40,5 @@ export function Flashbar(handle: Handle<{ items: FlashItem[] }>) {
           </li>
         ))}
       </ul>
-    )
-  }
+    ) : null
 }

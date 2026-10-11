@@ -6,32 +6,28 @@ import { assets } from '../assets.ts'
 import { logError } from '../log.ts'
 import { routes } from '../routes.ts'
 import { keyring } from '../signing/keys.ts'
+import { notFound } from './shared.tsx'
+
+let fresh = (body: string, status = 200) =>
+  new Response(body, { status, headers: { 'Cache-Control': 'no-store' } })
 
 export default createController(routes, {
   actions: {
-    async assets(context) {
-      return (await assets.fetch(context.request)) ?? new Response('Not Found', { status: 404 })
-    },
-    async health(context) {
+    assets: async (c) => (await assets.fetch(c.request)) ?? notFound(),
+    async health(c) {
       try {
-        await context.db.exec(sql`select 1`)
-        return new Response('ok', { headers: { 'Cache-Control': 'no-store' } })
-      } catch (error) {
-        logError('health check', error)
-        return new Response('database unavailable', {
-          status: 503,
-          headers: { 'Cache-Control': 'no-store' },
-        })
+        await c.db.exec(sql`select 1`)
+        return fresh('ok')
+      } catch (e) {
+        logError('health check', e)
+        return fresh('database unavailable', 503)
       }
     },
-    jwks() {
-      return Response.json(
+    jwks: () =>
+      Response.json(
         { keys: keyring.publicKeys },
         { headers: { 'Cache-Control': 'public, max-age=300' } },
-      )
-    },
-    home() {
-      return redirect(routes.requests.index.href(), 303)
-    },
+      ),
+    home: () => redirect(routes.requests.index.href(), 303),
   },
 })

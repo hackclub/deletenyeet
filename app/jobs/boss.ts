@@ -17,5 +17,5 @@ export async function enqueueResolve(requestId: string) {
 }
 
 export async function enqueueCall(resultId: string, startAfter?: Date) {
-  await boss.send(QUEUES.call, { resultId }, startAfter ? { startAfter } : undefined)
+  await boss.send(QUEUES.call, { resultId }, startAfter && { startAfter })
 }

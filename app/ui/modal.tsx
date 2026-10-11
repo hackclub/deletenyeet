@@ -1,6 +1,7 @@
 import type { Handle, RemixNode } from 'remix/component'
 
 import { Button } from './button.tsx'
+import { slot } from './slot.tsx'
 
 export function Modal(
   handle: Handle<{ id: string; header: RemixNode; footer?: RemixNode; children?: RemixNode }>,
@@ -28,8 +29,8 @@ export function Modal(
             popovertargetaction="hide"
           />
         </div>
-        {children ? <div class="modal__content">{children}</div> : null}
-        {footer ? <div class="modal__footer">{footer}</div> : null}
+        {slot('modal__content', children)}
+        {slot('modal__footer', footer)}
       </div>
     )
   }

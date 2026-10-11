@@ -1,3 +1,5 @@
+import { randomBytes } from 'node:crypto'
+
 import { errors, jwtVerify, SignJWT, type JWTPayload, type JWTVerifyGetKey } from 'jose'
 
 import { SafeError } from '../log.ts'
@@ -51,7 +53,9 @@ export class TokenError extends SafeError {
 export function tokenId(
   input: Pick<MintInput, 'requestId' | 'targetSlug' | 'action' | 'attempt'>,
 ): string {
-  return `${input.requestId}-${input.targetSlug}-${input.action}-${input.attempt}`
+  // the random tail keeps ids unique even when an attempt number repeats, since programs reject a reused jti
+  let nonce = randomBytes(6).toString('hex')
+  return `${input.requestId}-${input.targetSlug}-${input.action}-${input.attempt}-${nonce}`
 }
 
 export async function mintTargetToken(keyring: Keyring, input: MintInput): Promise<string> {

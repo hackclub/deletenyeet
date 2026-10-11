@@ -36,7 +36,7 @@ export function startFakeTarget(options: { port: number; jwksUrl: string }) {
     }
     if (claims.action !== match[2]) return send(400, { error: 'action_mismatch' })
 
-    let attempt = Number(claims.jti.split('-').at(-1))
+    let attempt = Number(claims.jti.split('-').at(-2))
     if (mode === 'down') return send(500, { error: 'down' })
     if (mode === 'reject') return send(401, { error: 'rejected' })
     if (mode === 'flaky' && attempt % 3 !== 0) return send(503, { error: 'flaky' })

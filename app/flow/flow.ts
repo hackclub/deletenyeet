@@ -55,7 +55,7 @@ export async function startDryRun(
       insert into target_results (request_id, target_id, phase)
       select ${requestId}, id, 'dry_run' from targets where enabled
       on conflict (request_id, target_id, phase) do update set
-        status = 'pending', found = null, deleted = null, retained = null, error_code = null,
+        status = 'pending', attempts = 0, found = null, deleted = null, retained = null, error_code = null,
         http_status = null, next_attempt_at = null, finished_at = null, claimed_until = null
       where target_results.status = 'failed'
     `)
@@ -130,7 +130,6 @@ interface Claim {
   target_id: string
   phase: TargetPhase
   attempts: number
-  sequence: number
 }
 
 export async function runTargetCall(db: Database, resultId: string) {
@@ -145,11 +144,7 @@ export async function runTargetCall(db: Database, resultId: string) {
       and (r.next_attempt_at is null or r.next_attempt_at <= now())
       and (r.claimed_until is null or r.claimed_until < now())
       and r.attempts < ${MAX_ATTEMPTS}
-    returning r.request_id::text, r.target_id::text, r.phase, r.attempts,
-      r.attempts + (
-        select coalesce(sum(o.attempts), 0)::int from target_results o
-        where o.request_id = r.request_id and o.target_id = r.target_id and o.id <> r.id
-      ) as sequence
+    returning r.request_id::text, r.target_id::text, r.phase, r.attempts
   `)
   let claim = rows<Claim>(claimed)[0]
   if (!claim) {
@@ -170,7 +165,7 @@ export async function runTargetCall(db: Database, resultId: string) {
     if (!request || !target) throw new TargetCallError('missing_row', false)
     if (request.status !== activeStatus) throw new TargetCallError('request_not_active', false)
     let subject = await loadSubject(db, request.id)
-    let call = { requestId: request.id, action: request.type, attempt: claim.sequence }
+    let call = { requestId: request.id, action: request.type, attempt: claim.attempts }
     let implementation = buildTarget(target)
     let result =
       claim.phase === 'dry_run'

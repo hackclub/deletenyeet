@@ -63,9 +63,9 @@ export function createEndpointTarget(options: {
     }
 
     if (!response.ok) {
-      await response.body?.cancel()
+      let reason = await errorReason(response)
       throw new TargetCallError(
-        `http_${response.status}`,
+        reason ? `http_${response.status}_${reason}` : `http_${response.status}`,
         RETRYABLE_STATUSES.has(response.status),
         response.status,
       )
@@ -89,5 +89,16 @@ export function createEndpointTarget(options: {
   return {
     dryRun: (subject, context) => call(subject, context, true),
     execute: (subject, context) => call(subject, context, false),
+  }
+}
+
+// programs answer errors as {"error": "snake_case_code"}; anything else is dropped so no personal data lands in error_code
+async function errorReason(response: Response): Promise<string | null> {
+  try {
+    let body = (await response.json()) as { error?: unknown } | null
+    let code = body?.error
+    return typeof code === 'string' && /^[a-z][a-z0-9_]{0,39}$/.test(code) ? code : null
+  } catch {
+    return null
   }
 }

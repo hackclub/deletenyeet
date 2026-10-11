@@ -116,9 +116,12 @@ To rotate:
 3. After another 5 minutes, outstanding tokens have expired. Remove the old key, or keep only
    its public half.
 
-Tokens also carry a `request_id` claim so programs can echo it without parsing `jti`. The
-attempt in `jti` counts every call to that target for the request, across dry run and
-execution, so a real run never reuses a dry run's `jti`.
+Tokens also carry a `request_id` claim so programs can echo it without parsing `jti`. A `jti`
+is `<request>-<target>-<action>-<attempt>-<random>`. The random tail makes every token unique,
+even when an attempt number repeats after a re-run, because programs reject a reused `jti`.
+
+When a program answers an error as `{"error": "snake_case_code"}`, the code is kept, so a
+failure reads `http_409_replayed` rather than `http_409`. Any other body is dropped.
 
 `app/signing/tokens.ts` holds `mintTargetToken` and `verifyTargetToken`. The verifier runs the
 checks a program should run: ES256 only, `kid` from the JWKS, `typ: JWT`, `iss`, `aud`, `exp`,
@@ -133,7 +136,7 @@ checks a program should run: ES256 only, `kid` from the JWKS, `typ: JWT`, `iss`,
    row and one `target-call` job per target.
 4. **Review.** When every dry run has answered, the request waits for approval. The review page
    shows each target's counts, retained items, and errors. Approval is blocked while any dry run
-   has failed; "Re-run failed" retries those.
+   has failed; "Re-run failed" retries those with a fresh set of attempts.
 5. **Execute.** Approving creates execution rows for exactly the targets that were reviewed and
    fans out again. The request ends `completed`, or `partially_failed` if any target failed.
 

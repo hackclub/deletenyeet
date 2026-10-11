@@ -18,15 +18,15 @@ export function LoginPage(handle: Handle<{ csrfToken: string; error?: string; re
   return () => {
     let { csrfToken, error, returnTo } = handle.props
     return (
-      <Document title="Sign in · Privacy request hub">
+      <Document title="welcome!">
         <main class="centered-page">
           <Container
             header={
               <Header
                 variant="h1"
-                description="Hack Club staff only. Sign in with your Hack Club account."
+                description="staff only pls!"
               >
-                Privacy request hub
+                epic data deletion 9000
               </Header>
             }
           >
@@ -41,7 +41,7 @@ export function LoginPage(handle: Handle<{ csrfToken: string; error?: string; re
                 <input type="hidden" name="_csrf" value={csrfToken} />
                 <input type="hidden" name="returnTo" value={returnTo} />
                 <Button type="submit" variant="primary" fullWidth>
-                  Sign in with Hack Club
+                  sign in
                 </Button>
               </form>
             </SpaceBetween>

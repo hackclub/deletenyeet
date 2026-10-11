@@ -148,10 +148,7 @@ export function NewRequestPage(
         <form method="post" action={routes.requests.create.href()}>
           <CsrfField token={csrfToken} />
           <SpaceBetween size="l">
-            <Header
-              variant="h1"
-              description="Nothing is sent to any target until a dry run has been reviewed and approved."
-            >
+            <Header variant="h1" description="Who up complaining about their data?">
               New request
             </Header>
             <Container header={<Header>Subject</Header>}>
@@ -181,7 +178,7 @@ export function NewRequestPage(
                 <FormField
                   label="Slack ID - optional"
                   controlId="slack_id"
-                  description="Until Hack Club Auth lookup is wired up, add any identifiers you already know."
+                  description="Helps in finding the user if email is not matched"
                   errorText={errors.slackId}
                 >
                   <Input
@@ -194,7 +191,7 @@ export function NewRequestPage(
                   />
                 </FormField>
                 <FormField
-                  label="Hack Club Auth identity ID - optional"
+                  label="HCA ID - optional"
                   controlId="identity_id"
                   errorText={errors.identityId}
                 >
@@ -203,6 +200,7 @@ export function NewRequestPage(
                     name="identity_id"
                     value={values.identityId}
                     invalid={Boolean(errors.identityId)}
+                    placeholder="ident!D2afpe"
                     autocomplete="off"
                   />
                 </FormField>

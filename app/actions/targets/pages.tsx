@@ -160,13 +160,13 @@ export function TargetFormPage(
           <SpaceBetween size="l">
             <Header
               variant="h1"
-              description="Endpoint targets implement POST /api/privacy/delete and /export and verify our JWKS."
+              description="Targets are the services that receive privacy requests!"
             >
               {title}
             </Header>
             <Alert type="info">
-              Airtable, Slack, Loops, Hackatime, and Auth target types come later. Only endpoint
-              targets can be registered for now.
+              Airtable, Slack, Loops, are currently not supported (yet). This is just for services
+              that can implement the endpoints!
             </Alert>
             <Container header={<Header>Endpoint target</Header>}>
               <SpaceBetween size="l">
@@ -182,7 +182,7 @@ export function TargetFormPage(
                 <FormField
                   label="Slug"
                   controlId="slug"
-                  description="Lowercase words joined by dashes. Used in token IDs and can't change later."
+                  description="Lowercase words joined by dashes. These should not change, so pick wisely!"
                   errorText={errors.slug}
                 >
                   <Input
@@ -197,7 +197,7 @@ export function TargetFormPage(
                 <FormField
                   label="Audience"
                   controlId="audience"
-                  description="The aud claim the program checks, e.g. summer-of-making."
+                  description="The aud claim the program checks, ex: orpheus-of-making."
                   errorText={errors.audience}
                 >
                   <Input
@@ -221,11 +221,11 @@ export function TargetFormPage(
                     value={values.url}
                     required
                     invalid={Boolean(errors.url)}
-                    placeholder="https://summer.hackclub.com"
+                    placeholder="https://orpheus.hackclub.com"
                   />
                 </FormField>
                 <Checkbox id="enabled" name="enabled" checked={values.enabled}>
-                  Enabled: include this target in new dry runs
+                  Enabled: include this target in new requests
                 </Checkbox>
               </SpaceBetween>
             </Container>

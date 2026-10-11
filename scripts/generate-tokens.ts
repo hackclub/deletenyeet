@@ -34,6 +34,10 @@ const INCLUDED = [
   'shadow-',
   'motion-duration-',
   'motion-easing-',
+  'color-charts-purple-700',
+  'color-charts-teal-700',
+  'color-charts-orange-700',
+  'color-charts-pink-700',
 ]
 const EXCLUDED = ['color-background-avatar-gen-ai', 'color-background-loading-bar-gen-ai']
 const CONTEXTS = ['top-navigation', 'flashbar', 'flashbar-warning', 'alert']

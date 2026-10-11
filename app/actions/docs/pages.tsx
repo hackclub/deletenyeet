@@ -2,14 +2,34 @@ import type { Handle } from 'remix/component'
 
 import type { Staff } from '../../auth/staff.ts'
 import { routes } from '../../routes.ts'
+import { Alert } from '../../ui/alert.tsx'
 import { Container } from '../../ui/container.tsx'
 import { GuestPage } from '../../ui/guest-page.tsx'
 import { Header } from '../../ui/header.tsx'
 import { CodeBlock, Prose } from '../../ui/prose.tsx'
 import { SpaceBetween } from '../../ui/space-between.tsx'
+import { CopyButton } from '../../ui/public/copy-button.tsx'
 import { StaffPage } from '../../ui/staff-page.tsx'
 
 const JWKS_URL = 'https://yeet.hackclub.com/.well-known/jwks.json'
+const DOCS_URL = `https://yeet.hackclub.com${routes.docs.deletions.href()}`
+
+const PROMPT = `Add the Hack Club privacy hub endpoints to this codebase. The spec is at ${DOCS_URL}. Read all of it before you start.
+
+Before writing any code:
+1. Ask me for the audience string. Hub staff set it for this program, and the token's aud claim must match it exactly.
+2. List every table, file store, and external service that holds data about a user. For each one, say whether you would delete it, or keep it detached from the account (things other people depend on, like orders, payouts, or ledger entries), and why. Wait for me to approve that list.
+
+Then build:
+- POST /api/privacy/delete and POST /api/privacy/export. There is no request body. The token arrives as Authorization: Bearer <token>.
+- Verify the token as an ES256 JWT against ${JWKS_URL}. Let an env var override that url, but default to it. Check typ JWT, issuer hackclub-privacy, the audience, 30 seconds of clock leeway, exp minus iat no more than 300 seconds, and that the action claim matches the endpoint.
+- Store each jti in a database table and reject repeats with 409 {"error": "replayed"}.
+- Find the person only from the token's subject claims (emails, slack_id, identity_id). Never read identifiers from the body or query string.
+- For delete, run the real deletion inside a transaction, count what it removed, and roll back when dry_run is true. Delete files in external storage only when dry_run is false, before committing.
+- Export must never change anything.
+- Respond with request_id, found, dry_run, deleted, and retained exactly as the spec shows. Errors look like {"error": "snake_case_code"}.
+- Never log tokens, emails, Slack ids, or identity ids. Log only request_id and the outcome.
+- Write docs/privacy.md explaining what gets deleted and what gets kept, like the reference implementations linked from the spec.`
 
 const TOKEN_EXAMPLE = `// header
 { "alg": "ES256", "typ": "JWT", "kid": "2026-10-11-mrXnQja1" }
@@ -134,6 +154,58 @@ function DeletionsDocs() {
             save yourself from dealing with the #fallout.
           </p>
 
+          <Alert type="info" header="the short version, if you've never built an api">
+            <ol>
+              <li>you add two urls to your app that the hub can POST to.</li>
+              <li>
+                every call comes with a token. a token is a signed note from the hub that says "this
+                person, this action, signed by the right people". a library checks the signature for
+                you, so nobody can fake one. you don't need to understand the crypto.
+              </li>
+              <li>you find the person in your database using the details inside the token.</li>
+              <li>
+                first call is a practice run to make sure everything works as expected: say what you{' '}
+                <em>would</em> delete and change nothing. a human checks to make sure this is legit
+                and the second call is the real deletion.
+              </li>
+              <li>you answer with counts, never with their personal data.</li>
+            </ol>
+          </Alert>
+
+          <h2>let your agent do it</h2>
+          <p>
+            if you use a coding agent, copy this prompt, paste it in your repo, and review what it
+            builds. it will ask you for your audience and walk you through what gets deleted before
+            writing anything. you still own the result, so read this page anyway.
+          </p>
+          <CopyButton text={PROMPT} label="Copy prompt for agents" />
+          <details>
+            <summary>show the prompt</summary>
+            <CodeBlock wrap>{PROMPT}</CodeBlock>
+          </details>
+
+          <h2>how a request plays out</h2>
+          <ol>
+            <li>someone asks Hack Club to delete their data, and it lands in the hub.</li>
+            <li>
+              the hub calls <code>/api/privacy/delete</code> on every program with{' '}
+              <code>dry_run: true</code>. you work out exactly what you'd delete and keep, report
+              the counts, and change <strong>nothing</strong>.
+            </li>
+            <li>
+              staff read every program's counts. if something looks off (you'd delete 40,000
+              comments for one person?) they stop here and nothing has been touched.
+            </li>
+            <li>
+              once they approve, the hub calls the same endpoint again with{' '}
+              <code>dry_run: false</code>. now you actually delete, and report what you removed.
+            </li>
+          </ol>
+          <p>
+            the dry run and the real run should give the same numbers. the reviewer approved those
+            numbers, so surprising them in the real run is bad.
+          </p>
+
           <h2>the endpoints</h2>
           <ul>
             <li>
@@ -156,28 +228,54 @@ function DeletionsDocs() {
             every request gets a fresh ES256 JWT that lives for 5 minutes max. it's bound to your
             epic program. here's what one looks like:
           </p>
-          <CodeBlock>{TOKEN_EXAMPLE}</CodeBlock>
+          <CodeBlock language="json" label="a decoded token">
+            {TOKEN_EXAMPLE}
+          </CodeBlock>
           <ul>
             <li>
-              <code>aud</code> is your program's audience, usually a slug.
+              <code>aud</code> is your program's audience. more on that right below.
             </li>
             <li>
-              <code>request_id</code> is the only thing from this you should to log. seriously.
+              <code>request_id</code> is the only thing from this you should log. seriously.
             </li>
             <li>
-              <code>dry_run</code> decides whether anything actually happens. the real call comes
-              later with <code>dry_run: false</code>
+              <code>dry_run</code> is <code>true</code> on the practice run and <code>false</code>{' '}
+              on the real one. if it's <code>true</code>, your database must look exactly the same
+              after the call as before it.
             </li>
             <li>
               <code>jti</code> is unique per call, retries included.
             </li>
           </ul>
 
-          <h2>verifying it (do NOT skip this)</h2>
+          <h3>the audience</h3>
           <p>
-            i swear if you muck this up you are in for a world of hurt. please implement it exactly
-            as described, and ask us if you have questions.
+            the audience is just a string that names your program, like <code>flavortown</code>.
+            it's what stops a token meant for one program from working on another. two places have
+            to agree on it:
           </p>
+          <ul>
+            <li>
+              <strong>the hub.</strong> staff type it in when they add your program as a target.
+            </li>
+            <li>
+              <strong>your code.</strong> you hardcode the same string in your token check.
+            </li>
+          </ul>
+          <p>
+            it has to match <strong>exactly</strong>. <code>summer-of-making</code>,{' '}
+            <code>summer_of_making</code>, and <code>Summer of Making</code> are three different
+            audiences. to keep it boring, use lowercase letters and hyphens, and tell us what you
+            picked when you ask to be added. if they don't match, every call fails with a{' '}
+            <code>401</code> and nothing gets deleted, so it's annoying but not dangerous.
+          </p>
+
+          <h2>verifying it</h2>
+          <Alert type="warning" header="do NOT skip this">
+            this check is the only thing stopping a random person on the internet from deleting your
+            users. use a jwt library (like <code>jose</code> for js, <code>ruby-jwt</code> for ruby,{' '}
+            <code>pyjwt</code> for python) and do every step below. ask us if anything is unclear.
+          </Alert>
           <ol>
             <li>
               grab the public keys from <code>{JWKS_URL}</code>. cache them for ~5 minutes, and
@@ -211,8 +309,12 @@ function DeletionsDocs() {
               can POST you an email and get it deleted, that's not a feature.
             </li>
           </ol>
-          <CodeBlock>{VERIFY_EXAMPLE}</CodeBlock>
-          <CodeBlock>{REPLAY_EXAMPLE}</CodeBlock>
+          <CodeBlock language="js" label="verifying a token with jose">
+            {VERIFY_EXAMPLE}
+          </CodeBlock>
+          <CodeBlock language="sql" label="remembering which tokens you've seen">
+            {REPLAY_EXAMPLE}
+          </CodeBlock>
           <p>
             if you do make the jwks url overridable with an env var, thats cool but make sure it
             defaults to the real one.
@@ -252,7 +354,7 @@ function DeletionsDocs() {
             </li>
             <li>
               <strong>close open work.</strong> cancel unfulfilled orders and pending payouts or
-              anything outstanding
+              anything outstanding.
             </li>
             <li>
               <strong>fix other people's numbers.</strong> recount likes, comments, followers, and
@@ -277,7 +379,9 @@ function DeletionsDocs() {
           </ul>
 
           <h2>what to send back</h2>
-          <CodeBlock>{RESPONSE_EXAMPLE}</CodeBlock>
+          <CodeBlock language="json" label="a dry run response">
+            {RESPONSE_EXAMPLE}
+          </CodeBlock>
           <ul>
             <li>
               echo <code>request_id</code> and <code>dry_run</code> exactly as the token had them.
@@ -291,7 +395,7 @@ function DeletionsDocs() {
               each <code>retained</code> entry has a <code>type</code> (100 characters max), a{' '}
               <code>count</code>, and a <code>reason</code> (500 characters max).
             </li>
-            <li>dont send back pii in the resonse, just the counts and reasons.</li>
+            <li>dont send back pii in the response, just the counts and reasons.</li>
           </ul>
 
           <h2>errors and retries</h2>
@@ -330,11 +434,13 @@ function DeletionsDocs() {
           <ol>
             <li>ship the endpoints.</li>
             <li>
-              ask someone on the infra team to add your program as a target: name, slug, audience,
-              and base url.
+              ask someone on the infra team to add your program as a target. tell them its name, the
+              audience you hardcoded, and the base url (the hub adds{' '}
+              <code>/api/privacy/delete</code> itself, so just the bit before that). point it at the
+              server your api actually runs on, not your frontend.
             </li>
             <li>
-              we can help test dryruns for you against alts you hold to make sure you did it right
+              we can help test dry runs for you against alts you hold to make sure you did it right
             </li>
             <li>profit?</li>
           </ol>

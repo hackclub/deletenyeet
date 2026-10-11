@@ -193,6 +193,10 @@
   --color-border-toggle-button-normal-default: #006ce0;
   --color-border-toggle-button-normal-hover: #002b66;
   --color-border-toggle-button-normal-pressed: #006ce0;
+  --color-charts-orange-700: #983c02;
+  --color-charts-pink-700: #a32952;
+  --color-charts-purple-700: #6b40b2;
+  --color-charts-teal-700: #06645a;
   --color-foreground-control-default: #ffffff;
   --color-foreground-control-disabled: #ffffff;
   --color-foreground-control-read-only: #656871;
@@ -509,6 +513,10 @@
     --color-border-toggle-button-normal-default: #42b4ff;
     --color-border-toggle-button-normal-hover: #75cfff;
     --color-border-toggle-button-normal-pressed: #42b4ff;
+    --color-charts-orange-700: #fca572;
+    --color-charts-pink-700: #f5a2bb;
+    --color-charts-purple-700: #cbabfc;
+    --color-charts-teal-700: #5fccb7;
     --color-foreground-control-default: #0f141a;
     --color-foreground-control-disabled: #161d26;
     --color-foreground-control-read-only: #a4a4ad;

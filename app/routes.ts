@@ -22,6 +22,9 @@ export const routes = route({
     edit: get('/targets/:id'),
     update: post('/targets/:id'),
   },
+  docs: {
+    deletions: get('/docs/deletions'),
+  },
   auth: {
     login: get('/login'),
     startLogin: post('/login'),

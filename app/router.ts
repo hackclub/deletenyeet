@@ -11,6 +11,7 @@ import { createRouter, type RouterContext } from 'remix/router'
 import authController from './actions/auth/controller.tsx'
 import controller from './actions/controller.tsx'
 import devController from './actions/dev/controller.tsx'
+import docsController from './actions/docs/controller.tsx'
 import requestsController from './actions/requests/controller.tsx'
 import targetsController from './actions/targets/controller.tsx'
 import { assets } from './assets.ts'
@@ -44,6 +45,7 @@ export const router = createRouter({
         routes.assets,
         routes.health,
         routes.jwks,
+        routes.docs.deletions,
         routes.auth.login,
         routes.auth.startLogin,
         routes.auth.callback,
@@ -65,4 +67,5 @@ router.map(routes, controller)
 router.map(routes.auth, authController)
 router.map(routes.requests, requestsController)
 router.map(routes.targets, targetsController)
+router.map(routes.docs, docsController)
 if (env.NODE_ENV === 'development') router.map(routes.dev, devController)

@@ -28,6 +28,10 @@ function navigation(): SideNavigationSection[] {
         { text: 'Targets', href: routes.targets.index.href() },
       ],
     },
+    {
+      title: 'Docs',
+      links: [{ text: 'Implementing deletions', href: routes.docs.deletions.href() }],
+    },
   ]
   if (env.NODE_ENV === 'development') {
     sections.push({

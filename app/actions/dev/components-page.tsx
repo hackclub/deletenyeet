@@ -10,6 +10,7 @@ import { FormField, Input, Select, Textarea } from '../../ui/form-field.tsx'
 import { Header } from '../../ui/header.tsx'
 import { KeyValuePairs } from '../../ui/key-value-pairs.tsx'
 import { Modal } from '../../ui/modal.tsx'
+import { CodeBlock, Prose } from '../../ui/prose.tsx'
 import { SpaceBetween } from '../../ui/space-between.tsx'
 import { StaffPage } from '../../ui/staff-page.tsx'
 import { StatusIndicator, type StatusType } from '../../ui/status-indicator.tsx'
@@ -352,6 +353,23 @@ export function ComponentsPage(handle: Handle<{ staff: Staff; csrfToken: string;
               </Tabs>
             </Container>
           </div>
+
+          <Container
+            header={<Header description="Long-form docs text and code blocks.">Prose</Header>}
+          >
+            <Prose>
+              <p>
+                Paragraphs, <code>inline code</code>, and <a href="#prose">links</a> keep the body
+                type scale.
+              </p>
+              <h3>A subheading</h3>
+              <ul>
+                <li>Lists get their markers back.</li>
+                <li>Items are spaced a little apart.</li>
+              </ul>
+              <CodeBlock>{'{ "found": true, "dry_run": true }'}</CodeBlock>
+            </Prose>
+          </Container>
         </SpaceBetween>
 
         <Modal

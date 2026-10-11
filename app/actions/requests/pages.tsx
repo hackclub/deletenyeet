@@ -9,6 +9,7 @@ import { Alert } from '../../ui/alert.tsx'
 import { Badge } from '../../ui/badge.tsx'
 import { Button } from '../../ui/button.tsx'
 import { Container } from '../../ui/container.tsx'
+import { emailOff } from '../../ui/email-off.tsx'
 import { FormField, Select } from '../../ui/form-field.tsx'
 import { Header } from '../../ui/header.tsx'
 import { KeyValuePairs } from '../../ui/key-value-pairs.tsx'
@@ -431,7 +432,7 @@ export function RequestShowPage(
                       {identifiers.map((i) => (
                         <li key={String(i.id)}>
                           <span class="text-secondary">{i.kind}</span>{' '}
-                          <span class="mono">{i.hashed ? 'redacted' : i.value}</span>
+                          {emailOff(i.hashed ? 'redacted' : i.value, 'mono')}
                         </li>
                       ))}
                     </ul>

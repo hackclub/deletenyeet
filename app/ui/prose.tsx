@@ -1,5 +1,7 @@
 import type { Handle, RemixNode } from 'remix/component'
 
+import { emailOff } from './email-off.tsx'
+
 export function Prose(handle: Handle<{ children: RemixNode }>) {
   return () => <div class="prose">{handle.props.children}</div>
 }
@@ -48,7 +50,8 @@ function highlight(code: string, language: CodeLanguage): RemixNode {
   for (let m of code.matchAll(GRAMMARS[language])) {
     let kind = Object.entries(m.groups ?? {}).find(([, v]) => v !== undefined)?.[0]
     if (m.index > at) out.push(code.slice(at, m.index))
-    out.push(<span class={`code-token code-token--${kind}`}>{m[0]}</span>)
+    let cls = `code-token code-token--${kind}`
+    out.push(m[0].includes('@') ? emailOff(m[0], cls) : <span class={cls}>{m[0]}</span>)
     at = m.index + m[0].length
   }
   out.push(code.slice(at))

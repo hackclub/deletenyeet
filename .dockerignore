@@ -1,0 +1,15 @@
+.git
+.github
+.agents
+.playwright-mcp
+.env
+.env.*
+!.env.example
+node_modules
+tmp
+docker-compose.yml
+Dockerfile
+.dockerignore
+hmr.ts
+scripts
+*.md

@@ -1,4 +1,4 @@
-# Privacy request hub
+# epic data yeeter 9000
 
 Internal Hack Club tool for processing GDPR deletion and export requests across every program.
 
@@ -35,20 +35,20 @@ Environment is validated once at startup in `app/env.ts`; the process exits befo
 if anything is missing or malformed. `.env` is loaded only by the dev
 and db scripts. Production reads the real environment.
 
-| Variable | Required | Notes |
-| --- | --- | --- |
-| `DATABASE_URL`      | yes | `postgres://` |
-| `PORT`              | no  | defaults to 44100 |
-| `APP_ORIGIN`        | yes | public origin; https in production. The OIDC redirect URI is `<APP_ORIGIN>/auth/callback` |
-| `SESSION_SECRET`    | yes | 32+ characters, signs the session cookie |
-| `HCA_CLIENT_ID`     | yes | Hack Club Auth OAuth app |
-| `HCA_CLIENT_SECRET` | yes | Hack Club Auth OAuth app |
-| `HCA_ISSUER`        | no  | defaults to `https://auth.hackclub.com` |
-| `HCA_PKCE`          | no  | `true` by default; set `false` only if Hack Club Auth rejects PKCE |
-| `STAFF_SUBS`        | prod | comma separated Hack Club Auth `sub` values allowed to sign in |
-| `MIGRATE_ON_START`  | no  | `false` by default; `true` applies pending migrations before listening (set in the Docker image) |
-| `SIGNING_KEYS`      | prod | keyring JSON for program tokens (see Signing). Set this or `SIGNING_KEYS_FILE`, not both |
-| `SIGNING_KEYS_FILE` | prod | path to the same JSON, e.g. a mounted secret file |
+| Variable            | Required | Notes                                                                                            |
+| ------------------- | -------- | ------------------------------------------------------------------------------------------------ |
+| `DATABASE_URL`      | yes      | `postgres://`                                                                                    |
+| `PORT`              | no       | defaults to 44100                                                                                |
+| `APP_ORIGIN`        | yes      | public origin; https in production. The OIDC redirect URI is `<APP_ORIGIN>/auth/callback`        |
+| `SESSION_SECRET`    | yes      | 32+ characters, signs the session cookie                                                         |
+| `HCA_CLIENT_ID`     | yes      | Hack Club Auth OAuth app                                                                         |
+| `HCA_CLIENT_SECRET` | yes      | Hack Club Auth OAuth app                                                                         |
+| `HCA_ISSUER`        | no       | defaults to `https://auth.hackclub.com`                                                          |
+| `HCA_PKCE`          | no       | `true` by default; set `false` only if Hack Club Auth rejects PKCE                               |
+| `STAFF_SUBS`        | prod     | comma separated Hack Club Auth `sub` values allowed to sign in                                   |
+| `MIGRATE_ON_START`  | no       | `false` by default; `true` applies pending migrations before listening (set in the Docker image) |
+| `SIGNING_KEYS`      | prod     | keyring JSON for program tokens (see Signing). Set this or `SIGNING_KEYS_FILE`, not both         |
+| `SIGNING_KEYS_FILE` | prod     | path to the same JSON, e.g. a mounted secret file                                                |
 
 ## Deploying (Coolify)
 

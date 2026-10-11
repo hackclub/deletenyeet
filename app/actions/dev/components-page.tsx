@@ -156,7 +156,7 @@ export function ComponentsPage(handle: Handle<{ staff: Staff; csrfToken: string;
         csrfToken={csrfToken}
         activeHref={pageHref}
         breadcrumbs={[
-          { text: 'Privacy request hub', href: routes.home.href() },
+          { text: 'epic data yeeter 9000', href: routes.home.href() },
           { text: 'Development', href: pageHref },
           { text: 'Components', href: pageHref },
         ]}

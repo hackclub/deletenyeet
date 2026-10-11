@@ -51,15 +51,14 @@ export function LoginPage(handle: Handle<{ csrfToken: string; error?: string; re
 
 export function DeniedPage(handle: Handle<{ sub: string; name: string | null }>) {
   return () => {
-    let { sub, name } = handle.props
+    let { sub } = handle.props
     return (
-      <Document title="Access denied · Privacy request hub">
+      <Document title="epic data yeeter 9000">
         <main class="centered-page">
-          <Container header={<Header variant="h1">Not on the staff allowlist</Header>}>
+          <Container header={<Header variant="h1">lmao no perms?</Header>}>
             <SpaceBetween size="m">
               <Alert type="warning">
-                {name ? `${name}, your` : 'Your'} Hack Club account signed in, but it is not allowed
-                to use this tool. Ask an admin to add this ID to <code>STAFF_SUBS</code>.
+                if you really should be on this block, tell them to add this to the list:
               </Alert>
               <code>{sub}</code>
               <Button href={routes.auth.login.href()}>Back to sign in</Button>

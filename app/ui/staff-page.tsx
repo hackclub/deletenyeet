@@ -44,7 +44,7 @@ export function StaffPage(handle: Handle<StaffPageProps>) {
       handle.props
     return (
       <Document
-        title={`${title} · Privacy request hub`}
+        title={`${title} · epic data yeeter 9000`}
         head={
           refreshSeconds ? (
             <meta http-equiv="refresh" content={String(refreshSeconds)} />
@@ -52,7 +52,7 @@ export function StaffPage(handle: Handle<StaffPageProps>) {
         }
       >
         <AppLayout
-          title="Privacy request hub"
+          title="epic data yeeter 9000"
           homeHref={routes.home.href()}
           activeHref={activeHref}
           navigation={navigation()}

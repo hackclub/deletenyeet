@@ -63,7 +63,7 @@ export function Page(
 
 export function Post(handle: Handle<{ action: string; csrf: string; children: RemixNode }>) {
   return () => (
-    <form method="post" action={handle.props.action}>
+    <form method="post" action={handle.props.action} data-rmx-document>
       <input type="hidden" name="_csrf" value={handle.props.csrf} />
       {handle.props.children}
     </form>

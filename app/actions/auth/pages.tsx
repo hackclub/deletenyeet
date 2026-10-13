@@ -47,6 +47,9 @@ export function LoginPage(handle: Handle<{ csrfToken: string; error?: string; re
             sign in
           </Button>
         </form>
+        <p class="text-secondary text-small">
+          <a href={routes.docs.deletions.href()}>docs on how to yeet data properly</a>
+        </p>
       </>,
     )
   }

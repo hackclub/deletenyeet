@@ -9,7 +9,7 @@ export function Document(
   handle: Handle<{ children?: RemixNode; head?: RemixNode; title?: string }>,
 ) {
   return () => {
-    let { children, head, title = 'Privacy request hub' } = handle.props
+    let { children, head, title = 'epic data yeeter 9000' } = handle.props
     let { href, importMap, preloads } = scriptEntry
     return (
       <html lang="en">

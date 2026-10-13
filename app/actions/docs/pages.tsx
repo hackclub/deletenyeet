@@ -14,10 +14,10 @@ import { StaffPage } from '../../ui/staff-page.tsx'
 const JWKS_URL = 'https://yeet.hackclub.com/.well-known/jwks.json'
 const DOCS_URL = `https://yeet.hackclub.com${routes.docs.deletions.href()}`
 
-const PROMPT = `Add the Hack Club privacy hub endpoints to this codebase. The spec is at ${DOCS_URL}. Read all of it before you start.
+const PROMPT = `Add the Hack Club data yeeter endpoints to this codebase. The spec is at ${DOCS_URL}. Read all of it before you start.
 
 Before writing any code:
-1. Ask me for the audience string. Hub staff set it for this program, and the token's aud claim must match it exactly.
+1. Ask me for the audience string. Yeeter staff set it for this program, and the token's aud claim must match it exactly.
 2. List every table, file store, and external service that holds data about a user. For each one, say whether you would delete it, or keep it detached from the account (things other people depend on, like orders, payouts, or ledger entries), and why. Wait for me to approve that list.
 
 Then build:
@@ -156,11 +156,11 @@ function DeletionsDocs() {
 
           <Alert type="info" header="the short version, if you've never built an api">
             <ol>
-              <li>you add two urls to your app that the hub can POST to.</li>
+              <li>you add two urls to your app that the yeeter can POST to.</li>
               <li>
-                every call comes with a token. a token is a signed note from the hub that says "this
-                person, this action, signed by the right people". a library checks the signature for
-                you, so nobody can fake one. you don't need to understand the crypto.
+                every call comes with a token. a token is a signed note from the yeeter that says
+                "this person, this action, signed by the right people". a library checks the
+                signature for you, so nobody can fake one. you don't need to understand the crypto.
               </li>
               <li>you find the person in your database using the details inside the token.</li>
               <li>
@@ -186,9 +186,9 @@ function DeletionsDocs() {
 
           <h2>how a request plays out</h2>
           <ol>
-            <li>someone asks Hack Club to delete their data, and it lands in the hub.</li>
+            <li>someone asks Hack Club to delete their data, and it lands in the yeeter.</li>
             <li>
-              the hub calls <code>/api/privacy/delete</code> on every program with{' '}
+              the yeeter calls <code>/api/privacy/delete</code> on every program with{' '}
               <code>dry_run: true</code>. you work out exactly what you'd delete and keep, report
               the counts, and change <strong>nothing</strong>.
             </li>
@@ -197,7 +197,7 @@ function DeletionsDocs() {
               comments for one person?) they stop here and nothing has been touched.
             </li>
             <li>
-              once they approve, the hub calls the same endpoint again with{' '}
+              once they approve, the yeeter calls the same endpoint again with{' '}
               <code>dry_run: false</code>. now you actually delete, and report what you removed.
             </li>
           </ol>
@@ -256,7 +256,7 @@ function DeletionsDocs() {
           </p>
           <ul>
             <li>
-              <strong>the hub.</strong> staff type it in when they add your program as a target.
+              <strong>the yeeter.</strong> staff type it in when they add your program as a target.
             </li>
             <li>
               <strong>your code.</strong> you hardcode the same string in your token check.
@@ -323,7 +323,7 @@ function DeletionsDocs() {
           <h2>finding the person</h2>
           <ul>
             <li>
-              <code>emails</code> come lowercased from the hub. compare them case-insensitively
+              <code>emails</code> come lowercased from the yeeter. compare them case-insensitively
               against every email column you have on them, including the weird secondary one you
               forgot about.
             </li>
@@ -385,7 +385,7 @@ function DeletionsDocs() {
           <ul>
             <li>
               echo <code>request_id</code> and <code>dry_run</code> exactly as the token had them.
-              the hub rejects responses that don't.
+              the yeeter rejects responses that don't.
             </li>
             <li>
               <code>deleted</code> maps a table or record type (100 characters max) to a
@@ -416,7 +416,7 @@ function DeletionsDocs() {
             </li>
             <li>
               <code>503</code> when something you depend on, like the jwks or s3, is having a
-              moment, so the hub tries again.
+              moment, so the yeeter tries again.
             </li>
           </ul>
 
@@ -435,7 +435,7 @@ function DeletionsDocs() {
             <li>ship the endpoints.</li>
             <li>
               ask someone on the infra team to add your program as a target. tell them its name, the
-              audience you hardcoded, and the base url (the hub adds{' '}
+              audience you hardcoded, and the base url (the yeeter adds{' '}
               <code>/api/privacy/delete</code> itself, so just the bit before that). point it at the
               server your api actually runs on, not your frontend.
             </li>

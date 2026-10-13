@@ -180,7 +180,7 @@ export function TargetFormPage(
                 <Field
                   label="Base URL"
                   name="url"
-                  description="The hub posts to <base URL>/api/privacy/delete and /export."
+                  description="The yeeter posts to <base URL>/api/privacy/delete and /export."
                   type="url"
                   value={v.url}
                   error={e.url}

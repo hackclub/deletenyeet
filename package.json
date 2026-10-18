@@ -28,7 +28,7 @@
     "@cloudscape-design/design-tokens": "^3.0.114",
     "@types/node": "latest",
     "@types/pg": "^8.23.1",
-    "oxfmt": "^0.72.0",
+    "oxfmt": "^0.73.0",
     "oxlint": "^1.87.0",
     "typescript": "latest"
   }

@@ -23,6 +23,7 @@ import {
   type Errors,
 } from '../shared.tsx'
 import { TargetFormPage, TargetsIndexPage, TargetsTable, type TargetValues } from './pages.tsx'
+import { targetNameSlug } from './public/defaults.ts'
 
 const SLUG = /^[a-z0-9]+(-[a-z0-9]+)*$/
 
@@ -34,10 +35,12 @@ let load = async (c: AppContext, id: string) =>
 
 function read(form?: FormData): TargetValues {
   let f = fields(form)
+  let name = f('name')
+  let inferred = targetNameSlug(name)
   return {
-    name: f('name'),
-    slug: f('slug').toLowerCase(),
-    audience: f('audience'),
+    name,
+    slug: f('slug').toLowerCase() || inferred,
+    audience: f('audience') || inferred,
     url: f('url'),
     enabled: form?.get('enabled') === 'on',
   }

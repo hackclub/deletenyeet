@@ -387,6 +387,12 @@
 
   /* space between */
 
+  .target-name-fields {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-scaled-l);
+  }
+
   .space-between {
     display: flex;
     flex-direction: column;

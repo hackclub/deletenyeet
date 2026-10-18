@@ -15,6 +15,7 @@ import { SpaceBetween } from '../../ui/space-between.tsx'
 import { StatusIndicator } from '../../ui/status-indicator.tsx'
 import { applyTableState, readTableState, Table, type TableColumn } from '../../ui/table.tsx'
 import { Actions, Field, Page, Post, type Errors, type PageBase } from '../shared.tsx'
+import { TargetNameFields } from './public/target-name-fields.tsx'
 
 export interface TargetValues {
   name: string
@@ -159,23 +160,12 @@ export function TargetFormPage(
             </Alert>
             <Container header={<Header>Endpoint target</Header>}>
               <SpaceBetween size="l">
-                <Field label="Name" name="name" value={v.name} error={e.name} required />
-                <Field
-                  label="Slug"
-                  name="slug"
-                  description="Lowercase words joined by dashes. These should not change, so pick wisely!"
-                  value={v.slug}
-                  error={e.slug}
-                  required
-                  disabled={t !== null}
-                />
-                <Field
-                  label="Audience"
-                  name="audience"
-                  description="The aud claim the program checks, ex: orpheus-of-making."
-                  value={v.audience}
-                  error={e.audience}
-                  required
+                <TargetNameFields
+                  name={v.name}
+                  slug={v.slug}
+                  audience={v.audience}
+                  editing={t !== null}
+                  errors={e}
                 />
                 <Field
                   label="Base URL"

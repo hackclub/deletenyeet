@@ -11,7 +11,7 @@
         "remix": "^3.0.0",
       },
       "devDependencies": {
-        "@cloudscape-design/design-tokens": "^3.0.114",
+        "@cloudscape-design/design-tokens": "^3.0.116",
         "@types/node": "latest",
         "@types/pg": "^8.23.1",
         "oxfmt": "^0.72.0",
@@ -21,7 +21,7 @@
     },
   },
   "packages": {
-    "@cloudscape-design/design-tokens": ["@cloudscape-design/design-tokens@3.0.114", "", {}, "sha512-WMy0a0FdIa2bXi1UwSZ0RKBcSQPkDemSItwrA9KmMMm6SCDVVbUTJC6vm3Meh4codWAjfn1hE5pjBBINUV6shg=="],
+    "@cloudscape-design/design-tokens": ["@cloudscape-design/design-tokens@3.0.116", "", {}, "sha512-fMoHEgvJtePAr9IopKfjS7o7lSiYpbCM5KdBUiwYhAO1py2+wyGKL+mr7DFDk7UTGaxIq6C3vLe3a0Q/yiedvA=="],
 
     "@emnapi/core": ["@emnapi/core@1.11.2", "", { "dependencies": { "@emnapi/wasi-threads": "1.2.2", "tslib": "^2.4.0" } }, "sha512-TC8MkTuZUtcTSiFeuC0ksCh9QIJ5+F21MvZ4Wn4ORfYaFJ/0dsiudv5tVkejgwZlwQ39jL9WWDe2lz8x0WglOA=="],
 

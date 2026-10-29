@@ -16,7 +16,13 @@ import { KeyValuePairs } from '../../ui/key-value-pairs.tsx'
 import { Modal } from '../../ui/modal.tsx'
 import { SpaceBetween } from '../../ui/space-between.tsx'
 import { StatusIndicator, type StatusType } from '../../ui/status-indicator.tsx'
-import { applyTableState, readTableState, Table, type TableColumn } from '../../ui/table.tsx'
+import {
+  applyTableState,
+  hrefWith,
+  readTableState,
+  Table,
+  type TableColumn,
+} from '../../ui/table.tsx'
 import { Tabs } from '../../ui/tabs.tsx'
 import { Actions, Field, Page, plural, Post, type Errors, type PageBase } from '../shared.tsx'
 import type { RequestDetail, ResultView } from './data.ts'
@@ -227,62 +233,102 @@ export function NewRequestPage(
 }
 
 function ResultsTable(
-  handle: Handle<{ results: ResultView[]; phase: TargetPhase; type: 'delete' | 'export' }>,
+  handle: Handle<{
+    results: ResultView[]
+    phase: TargetPhase
+    type: 'delete' | 'export'
+    url: URL
+  }>,
 ) {
   return () => {
-    let { results, phase, type } = handle.props
+    let { results, phase, type, url } = handle.props
     let dry = phase === 'dry_run'
-    return grid(
-      [
-        'Target',
-        'Status',
-        'Found',
-        type === 'export' ? 'Records' : dry ? 'Would delete' : 'Deleted',
-        'Retained',
-        'Attempts',
-      ],
-      results.length === 0 ? (
-        <tr>
-          <td class="table__empty" colSpan={6}>
-            {dry ? 'No targets were enabled for the dry run' : 'Not executed yet'}
-          </td>
-        </tr>
-      ) : (
-        results.map((r) => (
-          <tr key={r.id}>
-            <td>
-              {r.targetName}
-              {note(r.targetSlug)}
-            </td>
-            <td>
-              {status(resultStatus(r.status, r.inFlight))}
-              {r.errorCode ? note(r.errorCode) : null}
-              {r.status === 'retrying' ? note(`next ${formatTime(r.nextAttemptAt)}`, false) : null}
-            </td>
-            <td>{r.found === null ? '-' : r.found ? 'Yes' : 'No'}</td>
-            <td>
-              {list(
-                Object.entries(r.deleted ?? {})
-                  .filter(([, n]) => n > 0)
-                  .map(([k, n]) => [k, `${k}: ${n}`]),
-              )}
-            </td>
-            <td>
-              {list(
-                (r.retained ?? [])
-                  .filter((x) => x.count > 0)
-                  .map((x) => [
-                    x.type,
-                    <>
-                      {x.type}: {x.count} <span class="text-secondary">({x.reason})</span>
-                    </>,
-                  ]),
-              )}
-            </td>
-            <td>{r.attempts}</td>
-          </tr>
-        ))
-      ),
+    let columns: TableColumn<ResultView>[] = [
+      { id: 'name', header: 'Target', sortable: true, cell: (r) => r.targetName },
+      {
+        id: 'status',
+        header: 'Status',
+        sortable: true,
+        cell: (r) => (
+          <>
+            {status(resultStatus(r.status, r.inFlight))}
+            {r.errorCode ? note(r.errorCode) : null}
+            {r.status === 'retrying' ? note(`next ${formatTime(r.nextAttemptAt)}`, false) : null}
+          </>
+        ),
+      },
+      {
+        id: 'found',
+        header: 'Found',
+        sortable: true,
+        cell: (r) => (r.found === null ? '-' : r.found ? 'Yes' : 'No'),
+      },
+      {
+        id: 'deleted',
+        header: type === 'export' ? 'Records' : dry ? 'Would delete' : 'Deleted',
+        sortable: true,
+        cell: (r) =>
+          list(
+            Object.entries(r.deleted ?? {})
+              .filter(([, n]) => n > 0)
+              .map(([k, n]) => [k, `${k}: ${n}`]),
+          ),
+      },
+      {
+        id: 'retained',
+        header: 'Retained',
+        sortable: true,
+        cell: (r) =>
+          list(
+            (r.retained ?? [])
+              .filter((x) => x.count > 0)
+              .map((x) => [
+                x.type,
+                <>
+                  {x.type}: {x.count} <span class="text-secondary">({x.reason})</span>
+                </>,
+              ]),
+          ),
+      },
+      { id: 'attempts', header: 'Attempts', sortable: true, cell: (r) => r.attempts },
+    ]
+    let state = readTableState(url, {
+      sortable: columns.map((c) => c.id),
+      defaultSortBy: 'name',
+      prefix: 'results',
+    })
+    let items = applyTableState(results, state, {
+      filterText: (r) =>
+        `${r.targetName} ${resultStatus(r.status, r.inFlight).label} ${r.errorCode ?? ''}`,
+      sortValue: (r, column) => {
+        switch (column) {
+          case 'name':
+            return r.targetName
+          case 'status':
+            return resultStatus(r.status, r.inFlight).label
+          case 'found':
+            return r.found === null ? null : Number(r.found)
+          case 'deleted':
+            return deleted([r])
+          case 'retained':
+            return (r.retained ?? []).reduce((sum, x) => sum + x.count, 0)
+          default:
+            return r.attempts
+        }
+      },
+    })
+    return (
+      <Table
+        columns={columns}
+        items={items}
+        rowKey={(r: ResultView) => r.id}
+        state={state}
+        url={url}
+        prefix="results"
+        totalCount={results.length}
+        filterPlaceholder="Find by target, status, or error"
+        empty={dry ? 'No targets were enabled for the dry run' : 'Not executed yet'}
+      />
     )
   }
 }
@@ -321,10 +367,10 @@ function Confirm(
 }
 
 export function RequestShowPage(
-  handle: Handle<{ base: PageBase; detail: RequestDetail; tab: string }>,
+  handle: Handle<{ base: PageBase; detail: RequestDetail; tab: string; url: URL }>,
 ) {
   return () => {
-    let { base, detail, tab } = handle.props
+    let { base, detail, tab, url } = handle.props
     let { request: r, identifiers, results, audit } = detail
     let { id } = r
     let csrf = base.csrfToken
@@ -336,7 +382,9 @@ export function RequestShowPage(
     let failed = execution.filter((x) => x.status === 'failed')
     let awaiting = r.status === 'awaiting_approval'
     let executing = tab === 'execution'
-    let tabHref = (t: string) => `${routes.requests.show.href({ id })}?tab=${t}`
+    let tableUrl = new URL(url)
+    tableUrl.searchParams.set('tab', tab)
+    let tabHref = (t: string) => hrefWith(tableUrl, { tab: t })
     let records = (verb: string) => (r.type === 'export' ? 'Records' : `Records ${verb}`)
 
     let alerts: RemixNode[] = [
@@ -496,6 +544,7 @@ export function RequestShowPage(
                     results={executing ? execution : dryRun}
                     phase={executing ? 'execute' : 'dry_run'}
                     type={r.type}
+                    url={tableUrl}
                   />
                 </SpaceBetween>
               )}

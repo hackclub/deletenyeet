@@ -145,7 +145,9 @@ export default createController(routes.requests, {
         : ['executing', 'completed', 'partially_failed'].includes(detail.request.status)
           ? 'execution'
           : 'review'
-      return c.render(<RequestShowPage base={page(c, c.auth.identity)} detail={detail} tab={tab} />)
+      return c.render(
+        <RequestShowPage base={page(c, c.auth.identity)} detail={detail} tab={tab} url={c.url} />,
+      )
     },
 
     approve: (c) =>

@@ -21,7 +21,7 @@
   "dependencies": {
     "jose": "^6.2.13",
     "pg": "^8.16.3",
-    "pg-boss": "^12.37.1",
+    "pg-boss": "^12.38.0",
     "remix": "^3.0.0"
   },
   "devDependencies": {
